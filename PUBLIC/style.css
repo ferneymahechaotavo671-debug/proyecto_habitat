@@ -1,0 +1,111 @@
+/* RESET */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+/* FONDO */
+body {
+    background: linear-gradient(135deg, #0f3d2e, #1f7a63, #38b48b);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* CONTENEDOR */
+.container {
+    background: rgba(255, 255, 255, 0.95);
+    padding: 30px;
+    border-radius: 20px;
+    width: 90%;
+    max-width: 420px;
+    box-shadow: 0px 10px 30px rgba(0,0,0,0.3);
+    text-align: center;
+}
+
+/* LOGO */
+.logo {
+    width: 120px;
+    margin-bottom: 15px;
+}
+
+/* TITULO */
+h1 {
+    color: #0f3d2e;
+    margin-bottom: 20px;
+}
+
+/* FORM */
+form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+/* INPUTS Y SELECT */
+input, select {
+    width: 100%;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid #ccc;
+    outline: none;
+    transition: 0.3s;
+}
+
+/* EFECTO AL SELECCIONAR */
+input:focus, select:focus {
+    border-color: #1f7a63;
+    box-shadow: 0 0 8px rgba(31,122,99,0.5);
+}
+
+/* BOTÓN */
+button {
+    padding: 12px;
+    border: none;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #1f7a63, #38b48b);
+    color: white;
+    font-size: 16px;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+/* HOVER BOTÓN */
+button:hover {
+    transform: scale(1.05);
+    background: linear-gradient(135deg, #38b48b, #1f7a63);
+}
+
+/* MENSAJE */
+#mensaje {
+    margin-top: 15px;
+    font-weight: bold;
+    opacity: 0;
+    transition: opacity 0.5s;
+}
+
+/* MOSTRAR MENSAJE */
+#mensaje.show {
+    opacity: 1;
+}
+
+/* MENSAJE ÉXITO */
+.success {
+    color: #1f7a63;
+}
+
+/* MENSAJE ERROR */
+.error {
+    color: red;
+}
+
+/* RESPONSIVE */
+@media (max-width: 480px) {
+    .container {
+        width: 95%;
+        padding: 20px;
+    }
+}

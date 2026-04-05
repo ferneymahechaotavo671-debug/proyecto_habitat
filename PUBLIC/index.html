@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Registro Personal de Aseo</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div class="container">
+    <img src="logo.png" alt="Logo Habitat" class="logo">
+    <h1>Registro de Ingreso / Salida</h1>
+    <p style="margin-bottom: 20px; color: #555;">
+      Complete la información para registrar su entrada o salida.
+    </p>
+
+    <form id="registroForm">
+      <input type="text" id="nombre" placeholder="Nombre completo" required>
+      <input type="text" id="cedula" placeholder="Cédula" required>
+      <input type="text" id="edificio" placeholder="Edificio" required>
+
+      <select id="tipo_registro" required>
+        <option value="">Seleccione tipo de registro</option>
+        <option value="Entrada">Entrada</option>
+        <option value="Salida">Salida</option>
+      </select>
+
+      <button type="submit">Registrar</button>
+    </form>
+
+    <p id="mensaje"></p>
+  </div>
+
+  <script>
+    const form = document.getElementById("registroForm");
+    const mensaje = document.getElementById("mensaje");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const datos = {
+        nombre: document.getElementById("nombre").value.trim(),
+        cedula: document.getElementById("cedula").value.trim(),
+        edificio: document.getElementById("edificio").value.trim(),
+        tipo_registro: document.getElementById("tipo_registro").value
+      };
+
+      // Validación rápida
+      if (!datos.nombre || !datos.cedula || !datos.edificio || !datos.tipo_registro) {
+        mensaje.textContent = "Por favor complete todos los campos.";
+        mensaje.className = "show error";
+        return;
+      }
+
+      try {
+        const respuesta = await fetch("/registro", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(datos)
+        });
+
+        const resultado = await respuesta.json();
+
+        if (respuesta.ok) {
+          mensaje.textContent = resultado.mensaje || "Registro guardado correctamente";
+          mensaje.className = "show success";
+          form.reset();
+        } else {
+          mensaje.textContent = resultado.mensaje || "Error al registrar";
+          mensaje.className = "show error";
+        }
+
+      } catch (error) {
+        console.error("Error real:", error);
+        mensaje.textContent = "Error al enviar los datos. Verifique la conexión.";
+        mensaje.className = "show error";
+      }
+    });
+  </script>
+
+</body>
+</html>
