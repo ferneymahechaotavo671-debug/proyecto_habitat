@@ -14,6 +14,11 @@ app.use(express.urlencoded({ extended: true }));
 // Servir archivos estáticos desde /public
 app.use(express.static(path.join(__dirname, "public")));
 
+console.log("MYSQLHOST:", process.env.MYSQLHOST);
+console.log("MYSQLUSER:", process.env.MYSQLUSER);
+console.log("MYSQLDATABASE:", process.env.MYSQLDATABASE);
+console.log("MYSQLPORT:", process.env.MYSQLPORT);
+
 // Conexión a MySQL (Railway)
 const db = mysql.createConnection({
   host: process.env.MYSQLHOST,
