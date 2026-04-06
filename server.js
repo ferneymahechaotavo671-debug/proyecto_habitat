@@ -96,17 +96,28 @@ app.get("/admin/registros", (req, res) => {
 
 
 // ✅ NUEVA RUTA PARA EXPORTAR EXCEL
-app.get("/admin/exportar-excel", (req, res) => {
-  const sql = "SELECT * FROM registros ORDER BY fecha_hora DESC";
+app.get("/admin/exportar-excel-mensual", (req, res) => {
+  const mes = req.query.mes;
 
-  db.query(sql, async (err, results) => {
+  if (!mes) {
+    return res.status(400).send("Mes requerido");
+  }
+
+  const sql = `
+    SELECT * FROM registros 
+    WHERE MONTH(fecha_hora) = ?
+    ORDER BY fecha_hora DESC
+  `;
+
+  db.query(sql, [mes], async (err, results) => {
     if (err) {
-      console.error("❌ Error generando Excel:", err);
-      return res.status(500).send("Error al generar Excel");
+      console.error(err);
+      return res.status(500).send("Error");
     }
 
+    const ExcelJS = require("exceljs");
     const workbook = new ExcelJS.Workbook();
-    const sheet = workbook.addWorksheet("Registros");
+    const sheet = workbook.addWorksheet("Reporte Mensual");
 
     sheet.columns = [
       { header: "ID", key: "id", width: 10 },
@@ -133,7 +144,7 @@ app.get("/admin/exportar-excel", (req, res) => {
 
     res.setHeader(
       "Content-Disposition",
-      "attachment; filename=registros.xlsx"
+      `attachment; filename=reporte_mes_${mes}.xlsx`
     );
 
     await workbook.xlsx.write(res);
