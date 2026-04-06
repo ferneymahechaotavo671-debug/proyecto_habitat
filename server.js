@@ -7,7 +7,7 @@ const PORT = process.env.PORT || 8080;
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, "public")));
+app.use(express.static(path.join(__dirname, "PÚBLICO")));
 
 console.log("MYSQLHOST:", process.env.MYSQLHOST ? "CARGADA ✅" : "NO CARGADA ❌");
 console.log("MYSQLUSER:", process.env.MYSQLUSER ? "CARGADA ✅" : "NO CARGADA ❌");
@@ -53,7 +53,7 @@ db.connect((err) => {
 });
 
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
+  res.sendFile(path.join(__dirname, "PÚBLICO", "index.html"));
 });
 
 app.get("/test", (req, res) => {
