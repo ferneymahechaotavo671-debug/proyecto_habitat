@@ -146,20 +146,22 @@
       tabla.innerHTML = "";
 
       if (datos.length === 0) {
-        tabla.innerHTML = <tr><td colspan="6">No hay registros</td></tr>;
+        tabla.innerHTML = `<tr><td colspan="6">No hay registros</td></tr>`;
         return;
       }
 
       datos.forEach(registro => {
         const fila = document.createElement("tr");
         fila.innerHTML = `
-          <td>${registro.id}</td>
-          <td>${registro.nombre}</td>
-          <td>${registro.cedula}</td>
-          <td>${registro.edificio}</td>
-          <td>${registro.tipo_registro}</td>
-          <td>${new Date(registro.fecha_hora).toLocaleString()}</td>
-        `;
+  <td>${registro.id}</td>
+  <td>${registro.nombre}</td>
+  <td>${registro.cedula}</td>
+  <td>${registro.edificio}</td>
+  <td>${registro.tipo_registro}</td>
+  <td>${new Date(registro.fecha_hora).toLocaleString("es-CO", {
+    timeZone: "America/Bogota"
+  })}</td>
+`;
         tabla.appendChild(fila);
       });
     }
