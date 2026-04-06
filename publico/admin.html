@@ -2,183 +2,108 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Panel Admin - Habitat</title>
-  <link rel="stylesheet" href="style.css">
+  <title>Panel Admin</title>
   <style>
-    .admin-container {
-      background: rgba(255, 255, 255, 0.97);
-      padding: 30px;
-      border-radius: 20px;
-      width: 95%;
-      max-width: 1200px;
-      box-shadow: 0px 10px 30px rgba(0,0,0,0.3);
-      margin: 30px auto;
+    body {
+      font-family: Arial;
+      background: #f4f6f9;
+      padding: 20px;
+      text-align: center;
     }
 
-    .filtros {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 15px;
+    h1 {
       margin-bottom: 20px;
-      justify-content: center;
     }
 
-    .filtros select, .filtros button {
-      padding: 12px;
-      border-radius: 10px;
-      border: 1px solid #ccc;
+    button {
+      padding: 10px 20px;
+      background: #2ecc71;
+      color: white;
+      border: none;
+      cursor: pointer;
+      border-radius: 5px;
+      margin-bottom: 20px;
+    }
+
+    button:hover {
+      background: #27ae60;
     }
 
     table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 20px;
-      overflow-x: auto;
-      display: block;
+      background: white;
     }
 
     th, td {
-      padding: 12px;
+      padding: 10px;
       border: 1px solid #ddd;
-      text-align: center;
-      white-space: nowrap;
     }
 
     th {
-      background: #1f7a63;
+      background: #2c3e50;
       color: white;
-    }
-
-    .acciones {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-      justify-content: center;
-      margin-top: 20px;
-    }
-
-    .acciones a, .acciones button {
-      text-decoration: none;
-      padding: 12px 18px;
-      border-radius: 10px;
-      background: linear-gradient(135deg, #1f7a63, #38b48b);
-      color: white;
-      border: none;
-      cursor: pointer;
-    }
-
-    .acciones a:hover, .acciones button:hover {
-      transform: scale(1.03);
     }
   </style>
 </head>
 <body>
 
-  <div class="admin-container">
-    <div style="text-align:center;">
-      <img src="logo.png" alt="Logo Habitat" class="logo">
-      <h1>Panel de Administración</h1>
-    </div>
+  <h1>📋 Registros del Sistema</h1>
 
-    <div class="filtros">
-      <select id="mes">
-        <option value="">Mes</option>
-        <option value="1">Enero</option>
-        <option value="2">Febrero</option>
-        <option value="3">Marzo</option>
-        <option value="4">Abril</option>
-        <option value="5">Mayo</option>
-        <option value="6">Junio</option>
-        <option value="7">Julio</option>
-        <option value="8">Agosto</option>
-        <option value="9">Septiembre</option>
-        <option value="10">Octubre</option>
-        <option value="11">Noviembre</option>
-        <option value="12">Diciembre</option>
-      </select>
+  <button onclick="exportarExcel()">📥 Descargar Excel</button>
 
-      <select id="anio">
-        <option value="">Año</option>
-        <option value="2025">2025</option>
-        <option value="2026">2026</option>
-        <option value="2027">2027</option>
-      </select>
-
-      <button onclick="cargarRegistros()">Buscar</button>
-    </div>
-
-    <div class="acciones">
-      <a href="/" target="_blank">Ir al Registro</a>
-      <a href="/qr" target="_blank">Ver QR</a>
-      <button onclick="descargarExcel()">Descargar Excel</button>
-    </div>
-
-    <table>
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Nombre</th>
-          <th>Cédula</th>
-          <th>Edificio</th>
-          <th>Tipo</th>
-          <th>Fecha y Hora</th>
-        </tr>
-      </thead>
-      <tbody id="tablaRegistros"></tbody>
-    </table>
-  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Nombre</th>
+        <th>Cédula</th>
+        <th>Edificio</th>
+        <th>Tipo</th>
+        <th>Fecha</th>
+      </tr>
+    </thead>
+    <tbody id="tablaRegistros"></tbody>
+  </table>
 
   <script>
-    async function cargarRegistros() {
-      const mes = document.getElementById("mes").value;
-      const anio = document.getElementById("anio").value;
+    function cargarRegistros() {
+      fetch("/admin/registros")
+        .then(res => res.json())
+        .then(data => {
+          const tabla = document.getElementById("tablaRegistros");
+          tabla.innerHTML = "";
 
-      let url = "/admin/registros";
-      if (mes && anio) {
-        url += `?mes=${mes}&anio=${anio}`;
-      }
+          if (data.length === 0) {
+            tabla.innerHTML = "<tr><td colspan='6'>No hay registros</td></tr>";
+            return;
+          }
 
-      const res = await fetch(url);
-      const datos = await res.json();
-
-      const tabla = document.getElementById("tablaRegistros");
-      tabla.innerHTML = "";
-
-      if (datos.length === 0) {
-        tabla.innerHTML = `<tr><td colspan="6">No hay registros</td></tr>`;
-        return;
-      }
-
-      datos.forEach(registro => {
-        const fila = document.createElement("tr");
-        fila.innerHTML = `
-  <td>${registro.id}</td>
-  <td>${registro.nombre}</td>
-  <td>${registro.cedula}</td>
-  <td>${registro.edificio}</td>
-  <td>${registro.tipo_registro}</td>
-  <td>${new Date(registro.fecha_hora).toLocaleString("es-CO", {
-    timeZone: "America/Bogota"
-  })}</td>
-`;
-        tabla.appendChild(fila);
-      });
+          data.forEach(r => {
+            tabla.innerHTML += `
+              <tr>
+                <td>${r.id}</td>
+                <td>${r.nombre}</td>
+                <td>${r.cedula}</td>
+                <td>${r.edificio}</td>
+                <td>${r.tipo_registro}</td>
+                <td>${new Date(r.fecha_hora).toLocaleString("es-CO")}</td>
+              </tr>
+            `;
+          });
+        })
+        .catch(err => console.error("Error:", err));
     }
 
-    function descargarExcel() {
-      const mes = document.getElementById("mes").value;
-      const anio = document.getElementById("anio").value;
-
-      if (!mes || !anio) {
-        alert("Debes seleccionar mes y año");
-        return;
-      }
-
-      window.open(`/admin/exportar-excel?mes=${mes}&anio=${anio}`, "_blank");
+    function exportarExcel() {
+      window.location.href = "/admin/exportar-excel";
     }
 
-    cargarRegistros();
+    // Cargar al iniciar
+    window.onload = cargarRegistros;
+
+    // Actualizar cada 5 segundos
+    setInterval(cargarRegistros, 5000);
   </script>
 
 </body>
