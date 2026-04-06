@@ -5,59 +5,61 @@ const path = require("path");
 const app = express();
 const PORT = process.env.PORT || 8080;
 
-// Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "public")));
 
-// Revisar si Railway sí está pasando la variable
-console.log("DATABASE_URL:", process.env.DATABASE_URL ? "CARGADA ✅" : "NO CARGADA ❌");
+console.log("MYSQLHOST:", process.env.MYSQLHOST ? "CARGADA ✅" : "NO CARGADA ❌");
+console.log("MYSQLUSER:", process.env.MYSQLUSER ? "CARGADA ✅" : "NO CARGADA ❌");
+console.log("MYSQLPASSWORD:", process.env.MYSQLPASSWORD ? "CARGADA ✅" : "NO CARGADA ❌");
+console.log("MYSQLDATABASE:", process.env.MYSQLDATABASE ? "CARGADA ✅" : "NO CARGADA ❌");
+console.log("MYSQLPORT:", process.env.MYSQLPORT ? "CARGADA ✅" : "NO CARGADA ❌");
 
-let db;
+const db = mysql.createConnection({
+  host: process.env.MYSQLHOST,
+  user: process.env.MYSQLUSER,
+  password: process.env.MYSQLPASSWORD,
+  database: process.env.MYSQLDATABASE,
+  port: process.env.MYSQLPORT
+});
 
-try {
-  const dbUrl = new URL(process.env.DATABASE_URL);
+db.connect((err) => {
+  if (err) {
+    console.error("❌ Error conectando a MySQL:", err);
+    return;
+  }
 
-  console.log("HOST detectado:", dbUrl.hostname);
-  console.log("PUERTO detectado:", dbUrl.port);
-  console.log("DB detectada:", dbUrl.pathname.replace("/", ""));
-  console.log("USER detectado:", dbUrl.username);
+  console.log("✅ Conectado a MySQL correctamente");
 
-  db = mysql.createConnection({
-    host: dbUrl.hostname,
-    user: dbUrl.username,
-    password: dbUrl.password,
-    database: dbUrl.pathname.replace("/", ""),
-    port: dbUrl.port || 3306
-  });
+  const sqlCrearTabla = `
+    CREATE TABLE IF NOT EXISTS registros (
+      id INT NOT NULL AUTO_INCREMENT,
+      nombre VARCHAR(100) NOT NULL,
+      cedula VARCHAR(50) NOT NULL,
+      edificio VARCHAR(100) NOT NULL,
+      tipo_registro VARCHAR(20) NOT NULL,
+      fecha_hora TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (id)
+    )
+  `;
 
-} catch (error) {
-  console.error("❌ Error leyendo DATABASE_URL:", error);
-}
-
-// Conectar a MySQL
-if (db) {
-  db.connect((err) => {
+  db.query(sqlCrearTabla, (err) => {
     if (err) {
-      console.error("❌ Error conectando a MySQL:", err);
-      return;
+      console.error("❌ Error creando tabla:", err);
+    } else {
+      console.log("✅ Tabla 'registros' lista");
     }
-
-    console.log("✅ Conectado a MySQL correctamente");
   });
-}
+});
 
-// Ruta principal
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-// Ruta de prueba
 app.get("/test", (req, res) => {
   res.send("Servidor funcionando correctamente 🚀");
 });
 
-// Guardar registro
 app.post("/registro", (req, res) => {
   const { nombre, cedula, edificio, tipo_registro } = req.body;
 
@@ -80,7 +82,6 @@ app.post("/registro", (req, res) => {
   });
 });
 
-// Ver registros
 app.get("/admin/registros", (req, res) => {
   db.query("SELECT * FROM registros ORDER BY fecha_hora DESC", (err, results) => {
     if (err) {
@@ -92,7 +93,6 @@ app.get("/admin/registros", (req, res) => {
   });
 });
 
-// Iniciar servidor
 app.listen(PORT, () => {
   console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
 });
