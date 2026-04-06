@@ -1,6 +1,7 @@
 const express = require("express");
 const mysql = require("mysql2");
 const path = require("path");
+const ExcelJS = require("exceljs"); // ✅ NUEVO
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -92,6 +93,54 @@ app.get("/admin/registros", (req, res) => {
     res.json(results);
   });
 });
+
+
+// ✅ NUEVA RUTA PARA EXPORTAR EXCEL
+app.get("/admin/exportar-excel", (req, res) => {
+  const sql = "SELECT * FROM registros ORDER BY fecha_hora DESC";
+
+  db.query(sql, async (err, results) => {
+    if (err) {
+      console.error("❌ Error generando Excel:", err);
+      return res.status(500).send("Error al generar Excel");
+    }
+
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("Registros");
+
+    sheet.columns = [
+      { header: "ID", key: "id", width: 10 },
+      { header: "Nombre", key: "nombre", width: 25 },
+      { header: "Cédula", key: "cedula", width: 20 },
+      { header: "Edificio", key: "edificio", width: 20 },
+      { header: "Tipo", key: "tipo_registro", width: 15 },
+      { header: "Fecha", key: "fecha_hora", width: 25 }
+    ];
+
+    results.forEach(r => {
+      sheet.addRow({
+        ...r,
+        fecha_hora: new Date(r.fecha_hora).toLocaleString("es-CO", {
+          timeZone: "America/Bogota"
+        })
+      });
+    });
+
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+
+    res.setHeader(
+      "Content-Disposition",
+      "attachment; filename=registros.xlsx"
+    );
+
+    await workbook.xlsx.write(res);
+    res.end();
+  });
+});
+
 
 app.listen(PORT, () => {
   console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
