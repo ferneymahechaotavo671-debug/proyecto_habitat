@@ -8,34 +8,44 @@ const PORT = process.env.PORT || 8080;
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// Servir archivos estáticos desde /public
 app.use(express.static(path.join(__dirname, "public")));
 
-// Logs para verificar variables de Railway
-console.log("PRUEBA:", process.env.PRUEBA);
-console.log("MYSQLHOST:", process.env.MYSQLHOST);
-console.log("MYSQLUSER:", process.env.MYSQLUSER);
-console.log("MYSQLDATABASE:", process.env.MYSQLDATABASE);
-console.log("MYSQLPORT:", process.env.MYSQLPORT);
+// Revisar si Railway sí está pasando la variable
+console.log("DATABASE_URL:", process.env.DATABASE_URL ? "CARGADA ✅" : "NO CARGADA ❌");
 
-// Conexión a MySQL
-const db = mysql.createConnection({
-  host: process.env.MYSQLHOST,
-  user: process.env.MYSQLUSER,
-  password: process.env.MYSQLPASSWORD,
-  database: process.env.MYSQLDATABASE,
-  port: Number(process.env.MYSQLPORT)
-});
+let db;
+
+try {
+  const dbUrl = new URL(process.env.DATABASE_URL);
+
+  console.log("HOST detectado:", dbUrl.hostname);
+  console.log("PUERTO detectado:", dbUrl.port);
+  console.log("DB detectada:", dbUrl.pathname.replace("/", ""));
+  console.log("USER detectado:", dbUrl.username);
+
+  db = mysql.createConnection({
+    host: dbUrl.hostname,
+    user: dbUrl.username,
+    password: dbUrl.password,
+    database: dbUrl.pathname.replace("/", ""),
+    port: dbUrl.port || 3306
+  });
+
+} catch (error) {
+  console.error("❌ Error leyendo DATABASE_URL:", error);
+}
 
 // Conectar a MySQL
-db.connect((err) => {
-  if (err) {
-    console.error("❌ Error conectando a MySQL:", err);
-  } else {
-    console.log("✅ Conectado a MySQL");
-  }
-});
+if (db) {
+  db.connect((err) => {
+    if (err) {
+      console.error("❌ Error conectando a MySQL:", err);
+      return;
+    }
+
+    console.log("✅ Conectado a MySQL correctamente");
+  });
+}
 
 // Ruta principal
 app.get("/", (req, res) => {
@@ -47,36 +57,23 @@ app.get("/test", (req, res) => {
   res.send("Servidor funcionando correctamente 🚀");
 });
 
-// Crear tabla si no existe
-db.query(`
-  CREATE TABLE IF NOT EXISTS registros (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    nombre VARCHAR(100) NOT NULL,
-    apartamento VARCHAR(50) NOT NULL,
-    placa VARCHAR(20) NOT NULL,
-    fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-  )
-`, (err) => {
-  if (err) {
-    console.error("❌ Error creando tabla:", err);
-  } else {
-    console.log("✅ Tabla 'registros' lista");
-  }
-});
-
 // Guardar registro
-app.post("/guardar", (req, res) => {
-  const { nombre, apartamento, placa } = req.body;
+app.post("/registro", (req, res) => {
+  const { nombre, cedula, edificio, tipo_registro } = req.body;
 
-  if (!nombre || !apartamento || !placa) {
-    return res.status(400).json({ error: "Todos los campos son obligatorios" });
+  if (!nombre || !cedula || !edificio || !tipo_registro) {
+    return res.status(400).json({ mensaje: "Todos los campos son obligatorios" });
   }
 
-  const sql = "INSERT INTO registros (nombre, apartamento, placa) VALUES (?, ?, ?)";
-  db.query(sql, [nombre, apartamento, placa], (err, result) => {
+  const sql = `
+    INSERT INTO registros (nombre, cedula, edificio, tipo_registro)
+    VALUES (?, ?, ?, ?)
+  `;
+
+  db.query(sql, [nombre, cedula, edificio, tipo_registro], (err) => {
     if (err) {
       console.error("❌ Error guardando registro:", err);
-      return res.status(500).json({ error: "Error al guardar el registro" });
+      return res.status(500).json({ mensaje: "Error al guardar el registro" });
     }
 
     res.json({ mensaje: "✅ Registro guardado correctamente" });
@@ -84,11 +81,11 @@ app.post("/guardar", (req, res) => {
 });
 
 // Ver registros
-app.get("/registros", (req, res) => {
-  db.query("SELECT * FROM registros ORDER BY fecha DESC", (err, results) => {
+app.get("/admin/registros", (req, res) => {
+  db.query("SELECT * FROM registros ORDER BY fecha_hora DESC", (err, results) => {
     if (err) {
       console.error("❌ Error obteniendo registros:", err);
-      return res.status(500).json({ error: "Error al obtener registros" });
+      return res.status(500).json({ mensaje: "Error al obtener registros" });
     }
 
     res.json(results);
