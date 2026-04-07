@@ -1,7 +1,7 @@
 const express = require("express");
 const mysql = require("mysql2");
 const path = require("path");
-const ExcelJS = require("exceljs"); // ✅ NUEVO
+const ExcelJS = require("exceljs"); 
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -84,7 +84,7 @@ app.post("/registro", (req, res) => {
 });
 
 app.get("/admin/registros", (req, res) => {
-  db.query("SELECT * FROM registros ORDER BY fecha_hora DESC", (err, results) => {
+  db.query("SELECT * FROM registros ORDER BY id ASC", (err, results) => {
     if (err) {
       console.error("❌ Error obteniendo registros:", err);
       return res.status(500).json({ mensaje: "Error al obtener registros" });
@@ -106,7 +106,7 @@ app.get("/admin/exportar-excel-mensual", (req, res) => {
   const sql = `
     SELECT * FROM registros 
     WHERE MONTH(fecha_hora) = ?
-    ORDER BY fecha_hora DESC
+    ORDER BY id ASC
   `;
 
   db.query(sql, [mes], async (err, results) => {
