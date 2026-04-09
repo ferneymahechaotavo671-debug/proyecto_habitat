@@ -3,83 +3,88 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Registro Personal de Aseo</title>
+  <title>Registro</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-  <div class="container">
-    <img src="logo.png" alt="Logo Habitat" class="logo">
-    <h1>Registro de Ingreso / Salida</h1>
-    <p style="margin-bottom: 20px; color: #555;">
-      Complete la información para registrar su entrada o salida.
-    </p>
+<div class="container">
+  <img src="logo.png" alt="Logo" class="logo">
 
-    <form id="registroForm">
-      <input type="text" id="nombre" placeholder="Nombre completo" required>
-      <input type="text" id="cedula" placeholder="Cédula" required>
-      <input type="text" id="edificio" placeholder="Edificio" required>
+  <h1>Registro de Ingreso / Salida</h1>
 
-      <select id="tipo_registro" required>
-        <option value="">Seleccione tipo de registro</option>
-        <option value="Entrada">Entrada</option>
-        <option value="Salida">Salida</option>
-      </select>
+  <h3 id="nombreEdificio"></h3>
 
-      <button type="submit">Registrar</button>
-    </form>
+  <form id="registroForm">
+    <input type="text" id="cedula" placeholder="Ingrese su cédula" required>
+    <button type="submit">Registrar</button>
+  </form>
 
-    <p id="mensaje"></p>
-  </div>
+  <p id="mensaje"></p>
+</div>
 
-  <script>
-    const form = document.getElementById("registroForm");
-    const mensaje = document.getElementById("mensaje");
+<script>
 
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
+const form = document.getElementById("registroForm");
+const mensaje = document.getElementById("mensaje");
 
-      const datos = {
-        nombre: document.getElementById("nombre").value.trim(),
-        cedula: document.getElementById("cedula").value.trim(),
-        edificio: document.getElementById("edificio").value.trim(),
-        tipo_registro: document.getElementById("tipo_registro").value
-      };
+// 📷 Obtener QR
+const params = new URLSearchParams(window.location.search);
+const codigoEdificio = params.get("edificio");
 
-      // Validación rápida
-      if (!datos.nombre || !datos.cedula || !datos.edificio || !datos.tipo_registro) {
-        mensaje.textContent = "Por favor complete todos los campos.";
-        mensaje.className = "show error";
-        return;
-      }
+// 🔐 Bloquear si no viene del QR
+if (!codigoEdificio) {
+  document.body.innerHTML = "<h2 style='text-align:center;'>Acceso no autorizado ❌</h2>";
+}
 
-      try {
-        const respuesta = await fetch("/registro", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify(datos)
-        });
+// 🏢 Mostrar nombre bonito
+const nombres = {
+  arcolsa1: "ED.ARCOLSA 1",
+  elpunto: "ED. EL PUNTO",
+  calle91: "CALLE 91 PH"
+};
 
-        const resultado = await respuesta.json();
+document.getElementById("nombreEdificio").innerText = nombres[codigoEdificio] || "";
 
-        if (respuesta.ok) {
-          mensaje.textContent = resultado.mensaje || "Registro guardado correctamente";
-          mensaje.className = "show success";
-          form.reset();
-        } else {
-          mensaje.textContent = resultado.mensaje || "Error al registrar";
-          mensaje.className = "show error";
-        }
+// 🚀 Enviar registro
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
 
-      } catch (error) {
-        console.error("Error real:", error);
-        mensaje.textContent = "Error al enviar los datos. Verifique la conexión.";
-        mensaje.className = "show error";
-      }
+  const cedula = document.getElementById("cedula").value.trim();
+
+  if (!cedula) {
+    mensaje.textContent = "Ingrese la cédula";
+    mensaje.className = "show error";
+    return;
+  }
+
+  try {
+    const respuesta = await fetch("/registro", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        cedula,
+        codigoEdificio
+      })
     });
-  </script>
+
+    const resultado = await respuesta.json();
+
+    mensaje.textContent = resultado.mensaje;
+    mensaje.className = "show success";
+
+    form.reset();
+
+  } catch (error) {
+    console.error(error);
+    mensaje.textContent = "Error de conexión";
+    mensaje.className = "show error";
+  }
+});
+
+</script>
 
 </body>
 </html>
