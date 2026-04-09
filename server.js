@@ -152,12 +152,46 @@ app.post("/registro", (req, res) => {
 
 // 📊 ADMIN VER REGISTROS
 app.get("/admin/registros", (req, res) => {
-  db.query("SELECT * FROM registros ORDER BY id DESC", (err, results) => {
+  const { edificio_id, cedula } = req.query;
+
+  let sql = `
+    SELECT r.*, e.nombre AS edificio_nombre
+    FROM registros r
+    LEFT JOIN edificios e ON r.edificio_id = e.id
+    WHERE 1=1
+  `;
+
+  let params = [];
+
+  if (edificio_id) {
+    sql += " AND r.edificio_id = ?";
+    params.push(edificio_id);
+  }
+
+  if (cedula) {
+    sql += " AND r.cedula = ?";
+    params.push(cedula);
+  }
+
+  sql += " ORDER BY r.fecha_hora DESC";
+
+  db.query(sql, params, (err, results) => {
     if (err) {
-      console.error("❌ Error obteniendo registros:", err);
+      console.error(err);
       return res.status(500).json({ mensaje: "Error al obtener registros" });
     }
 
+    res.json(results);
+  });
+});
+
+// 🏢 LISTAR EDIFICIOS
+app.get("/admin/edificios", (req, res) => {
+  db.query("SELECT * FROM edificios", (err, results) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ mensaje: "Error al obtener edificios" });
+    }
     res.json(results);
   });
 });

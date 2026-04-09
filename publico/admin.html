@@ -26,7 +26,7 @@
 
     .botones {
       text-align: center;
-      margin-bottom: 20px;
+      margin-bottom: 15px;
     }
 
     button {
@@ -39,20 +39,20 @@
       font-weight: bold;
     }
 
-    .excel {
-      background: #27ae60;
+    .excel { background: #27ae60; }
+    .excel:hover { background: #219150; }
+
+    .mensual { background: #2980b9; }
+    .mensual:hover { background: #1f6691; }
+
+    .filtros {
+      text-align: center;
+      margin-bottom: 20px;
     }
 
-    .excel:hover {
-      background: #219150;
-    }
-
-    .mensual {
-      background: #2980b9;
-    }
-
-    .mensual:hover {
-      background: #1f6691;
+    select, input {
+      padding: 8px;
+      margin: 5px;
     }
 
     table {
@@ -83,74 +83,114 @@
 
 <body>
 
-  <h1>📊 Panel de Administración</h1>
+<h1>📊 Panel de Administración</h1>
 
-  <div class="contador" id="contador">Total registros: 0</div>
+<div class="contador" id="contador">Total registros: 0</div>
 
-  <div class="botones">
-    <button class="excel" onclick="exportarExcel()">📥 Excel General</button>
-    <button class="mensual" onclick="reporteMensual()">📅 Reporte Mensual</button>
-  </div>
+<div class="botones">
+  <button class="excel" onclick="exportarExcel()">📥 Excel General</button>
+  <button class="mensual" onclick="reporteMensual()">📅 Reporte Mensual</button>
+</div>
 
-  <table>
-    <thead>
-      <tr>
-        <th>ID</th>
-        <th>Nombre</th>
-        <th>Cédula</th>
-        <th>Edificio</th>
-        <th>Tipo</th>
-        <th>Fecha</th>
-      </tr>
-    </thead>
-    <tbody id="tablaRegistros"></tbody>
-  </table>
+<!-- 🔥 FILTROS -->
+<div class="filtros">
+  <select id="filtroEdificio">
+    <option value="">Todos los edificios</option>
+  </select>
 
-  <script>
-    function cargarRegistros() {
-      fetch("/admin/registros")
-        .then(res => res.json())
-        .then(data => {
-          const tabla = document.getElementById("tablaRegistros");
-          const contador = document.getElementById("contador");
+  <input type="text" id="filtroCedula" placeholder="Buscar cédula">
 
-          tabla.innerHTML = "";
-          contador.innerText = "Total registros: " + data.length;
+  <button onclick="cargarRegistros()">Filtrar</button>
+</div>
 
-          if (data.length === 0) {
-            tabla.innerHTML = "<tr><td colspan='6'>No hay registros</td></tr>";
-            return;
-          }
+<table>
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Nombre</th>
+      <th>Cédula</th>
+      <th>Edificio</th>
+      <th>Tipo</th>
+      <th>Fecha</th>
+    </tr>
+  </thead>
+  <tbody id="tablaRegistros"></tbody>
+</table>
 
-          data.forEach(r => {
-            tabla.innerHTML += `
-              <tr>
-                <td>${r.id}</td>
-                <td>${r.nombre}</td>
-                <td>${r.cedula}</td>
-                <td>${r.edificio}</td>
-                <td>${r.tipo_registro}</td>
-                <td>${new Date(r.fecha_hora).toLocaleString("es-CO")}</td>
-              </tr>
-            `;
-          });
-        });
-    }
+<script>
 
-    function exportarExcel() {
-      window.location.href = "/admin/exportar-excel";
-    }
+function cargarEdificios() {
+  fetch("/admin/edificios")
+    .then(res => res.json())
+    .then(data => {
+      const select = document.getElementById("filtroEdificio");
 
-    function reporteMensual() {
-      const mes = prompt("Ingresa el mes (1-12):");
-      if (!mes) return;
+      data.forEach(e => {
+        const option = document.createElement("option");
+        option.value = e.id;
+        option.textContent = e.nombre;
+        select.appendChild(option);
+      });
+    });
+}
 
-      window.location.href = `/admin/exportar-excel-mensual?mes=${mes}`;
-    }
+function cargarRegistros() {
+  const edificio = document.getElementById("filtroEdificio").value;
+  const cedula = document.getElementById("filtroCedula").value;
 
-    window.onload = cargarRegistros;
-    setInterval(cargarRegistros, 5000);
-  </script>
+  let url = "/admin/registros?";
+
+  if (edificio) url += `edificio_id=${edificio}&`;
+  if (cedula) url += `cedula=${cedula}`;
+
+  fetch(url)
+    .then(res => res.json())
+    .then(data => {
+      const tabla = document.getElementById("tablaRegistros");
+      const contador = document.getElementById("contador");
+
+      tabla.innerHTML = "";
+      contador.innerText = "Total registros: " + data.length;
+
+      if (data.length === 0) {
+        tabla.innerHTML = "<tr><td colspan='6'>No hay registros</td></tr>";
+        return;
+      }
+
+      data.forEach(r => {
+        tabla.innerHTML += `
+          <tr>
+            <td>${r.id}</td>
+            <td>${r.nombre}</td>
+            <td>${r.cedula}</td>
+            <td>${r.edificio_nombre || r.edificio}</td>
+            <td>${r.tipo_registro}</td>
+            <td>${new Date(r.fecha_hora).toLocaleString("es-CO")}</td>
+          </tr>
+        `;
+      });
+    });
+}
+
+function exportarExcel() {
+  window.location.href = "/admin/exportar-excel";
+}
+
+function reporteMensual() {
+  const mes = prompt("Ingresa el mes (1-12):");
+  if (!mes) return;
+
+  window.location.href = `/admin/exportar-excel-mensual?mes=${mes}`;
+}
+
+window.onload = () => {
+  cargarEdificios();
+  cargarRegistros();
+};
+
+setInterval(cargarRegistros, 5000);
+
+</script>
 
 </body>
 </html>
