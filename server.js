@@ -2,6 +2,7 @@ const express = require("express");
 const mysql = require("mysql2");
 const path = require("path");
 const ExcelJS = require("exceljs");
+const cron = require("node-cron");
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -106,8 +107,8 @@ app.post("/registro", (req, res) => {
 
       // 2. Validar usuario
       db.query(
-        "SELECT * FROM usuarios WHERE cedula = ? AND edificio_id = ?",
-        [cedula, edificio.id],
+  "SELECT * FROM registros WHERE cedula = ? AND edificio_id = ? ORDER BY fecha_hora DESC LIMIT 1",
+  [cedula, edificio.id],
         (err, usuarios) => {
           if (usuarios.length === 0) {
             return res.json({ mensaje: "No autorizado 🚫" });
@@ -150,7 +151,7 @@ app.post("/registro", (req, res) => {
   );
 });
 
-// 📊 ADMIN VER REGISTROS
+// 📊 ADMIN REGISTROS (CON FILTROS)
 app.get("/admin/registros", (req, res) => {
   const { edificio_id, cedula } = req.query;
 
@@ -184,6 +185,7 @@ app.get("/admin/registros", (req, res) => {
     res.json(results);
   });
 });
+
 
 // 🏢 LISTAR EDIFICIOS
 app.get("/admin/edificios", (req, res) => {
@@ -249,6 +251,36 @@ app.get("/admin/exportar-excel-mensual", (req, res) => {
 
     await workbook.xlsx.write(res);
     res.end();
+  });
+});
+
+// ⏰ CIERRE AUTOMÁTICO 11:59 PM
+cron.schedule("59 23 * * *", () => {
+  console.log("⏰ Ejecutando cierre automático...");
+
+  db.query(`
+    SELECT * FROM registros r1
+    WHERE tipo_registro = 'Entrada'
+    AND NOT EXISTS (
+      SELECT 1 FROM registros r2
+      WHERE r2.cedula = r1.cedula
+      AND r2.edificio_id = r1.edificio_id
+      AND r2.tipo_registro = 'Salida'
+      AND r2.fecha_hora > r1.fecha_hora
+    )
+  `, (err, resultados) => {
+
+    if (err) return console.error(err);
+
+    resultados.forEach(r => {
+      db.query(`
+        INSERT INTO registros 
+        (nombre, cedula, edificio, tipo_registro, edificio_id, observacion)
+        VALUES (?, ?, ?, 'Salida', ?, 'Salida automática - No registró salida')
+      `, [r.nombre, r.cedula, r.edificio, r.edificio_id]);
+    });
+
+    console.log("✅ Cierre automático completado");
   });
 });
 
