@@ -86,18 +86,26 @@ app.get("/test", (req, res) => {
 
 // 🔥 REGISTRO CON QR AUTOMÁTICO
 app.post("/registro", (req, res) => {
-  const { cedula, codigoEdificio } = req.body;
+  const cedula = req.body.cedula?.trim();
+  const codigoEdificio = req.body.codigoEdificio?.trim().toLowerCase();
+
+  console.log("📥 Cedula:", cedula);
+  console.log("📥 QR:", codigoEdificio);
 
   if (!cedula || !codigoEdificio) {
-    return res.status(400).json({ mensaje: "Datos incompletos" });
+    return res.status(400).json({ mensaje: "Datos incompletos ❌" });
   }
 
-  // 1. Buscar edificio por QR
+  // 🔍 Buscar edificio
   db.query(
     "SELECT * FROM edificios WHERE codigo_qr = ?",
     [codigoEdificio],
     (err, edificios) => {
-      if (err) return res.status(500).json({ mensaje: "Error servidor" });
+
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ mensaje: "Error servidor" });
+      }
 
       if (edificios.length === 0) {
         return res.json({ mensaje: "QR inválido ❌" });
@@ -105,22 +113,33 @@ app.post("/registro", (req, res) => {
 
       const edificio = edificios[0];
 
-      // 2. Validar usuario
+      // 🔐 Validar usuario
       db.query(
-  "SELECT * FROM registros WHERE cedula = ? AND edificio_id = ? ORDER BY fecha_hora DESC LIMIT 1",
-  [cedula, edificio.id],
+        "SELECT * FROM usuarios WHERE cedula = ? AND edificio_id = ?",
+        [cedula, edificio.id],
         (err, usuarios) => {
+
+          if (err) {
+            console.error(err);
+            return res.status(500).json({ mensaje: "Error usuarios" });
+          }
+
           if (usuarios.length === 0) {
             return res.json({ mensaje: "No autorizado 🚫" });
           }
 
           const usuario = usuarios[0];
 
-          // 3. Revisar último registro
+          // 🔄 Revisar último registro SOLO de ese edificio
           db.query(
-            "SELECT * FROM registros WHERE cedula = ? ORDER BY fecha_hora DESC LIMIT 1",
-            [cedula],
+            "SELECT * FROM registros WHERE cedula = ? AND edificio_id = ? ORDER BY fecha_hora DESC LIMIT 1",
+            [cedula, edificio.id],
             (err, registros) => {
+
+              if (err) {
+                console.error(err);
+                return res.status(500).json({ mensaje: "Error registros" });
+              }
 
               let tipo = "Entrada";
 
@@ -128,13 +147,14 @@ app.post("/registro", (req, res) => {
                 tipo = "Salida";
               }
 
-              // 4. Guardar registro
+              // 💾 Guardar
               db.query(
                 `INSERT INTO registros 
                 (nombre, cedula, edificio, tipo_registro, edificio_id) 
                 VALUES (?, ?, ?, ?, ?)`,
                 [usuario.nombre, cedula, edificio.nombre, tipo, edificio.id],
                 (err) => {
+
                   if (err) {
                     console.error(err);
                     return res.status(500).json({ mensaje: "Error al registrar" });

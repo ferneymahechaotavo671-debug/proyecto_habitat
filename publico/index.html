@@ -30,23 +30,32 @@ const mensaje = document.getElementById("mensaje");
 
 // 📷 Obtener QR
 const params = new URLSearchParams(window.location.search);
-const codigoEdificio = params.get("edificio");
+let codigoEdificio = params.get("edificio");
 
 // 🔐 Bloquear si no viene del QR
 if (!codigoEdificio) {
   document.body.innerHTML = "<h2 style='text-align:center;'>Acceso no autorizado ❌</h2>";
 }
 
+// 🧼 Limpiar datos
+codigoEdificio = codigoEdificio?.trim().toLowerCase();
+
 // 🏢 Mostrar nombre bonito
 const nombres = {
   arcolsa1: "ED.ARCOLSA 1",
   elpunto: "ED. EL PUNTO",
-  calle91: "CALLE 91 PH"
+  calle91: "CALLE 91 PH",
+  cerrosales: "ED. CERROSALES",
+  balconesemaus: "ED. BALCONES DE EMAUS",
+  torreverne: "ED. TORRE VERNE",
+  sanjake: "ED. SANJAKE",
+  plaza94: "ED. PLAZA 94",
+  parque86: "ED. PARQUE 86"
 };
 
 document.getElementById("nombreEdificio").innerText = nombres[codigoEdificio] || "";
 
-// 🚀 Enviar registro
+// 🚀 Enviar
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
 
@@ -65,8 +74,8 @@ form.addEventListener("submit", async (e) => {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        cedula,
-        codigoEdificio
+        cedula: cedula.trim(),
+        codigoEdificio: codigoEdificio
       })
     });
 
