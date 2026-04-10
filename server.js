@@ -30,15 +30,21 @@ db.connect(err => {
 ========================= */
 app.post("/registro", (req, res) => {
 
-  const cedula = req.body.cedula?.trim();
-  const codigoEdificio = req.body.codigoEdificio?.trim().toLowerCase();
+  let cedula = req.body.cedula?.trim();
+  let codigoEdificio = req.body.codigoEdificio?.trim().toLowerCase();
+
+  // 🔥 NORMALIZAR QR
+  codigoEdificio = codigoEdificio
+    .replace(/\s/g, "")
+    .replace(/\./g, "");
 
   if (!cedula || !codigoEdificio) {
     return res.status(400).json({ mensaje: "Datos incompletos" });
   }
 
   db.query(
-    "SELECT * FROM edificios WHERE codigo_qr = ?",
+    `SELECT * FROM edificios
+     WHERE LOWER(REPLACE(REPLACE(codigo_qr,' ',''),'.','')) = ?`,
     [codigoEdificio],
     (err, eds) => {
 
@@ -47,7 +53,6 @@ app.post("/registro", (req, res) => {
 
       const edificio = eds[0];
 
-      // 🔐 validar usuario + acceso a edificio
       db.query(
         `SELECT u.id, u.nombre, u.cedula, r.nombre AS rol
          FROM usuarios u
@@ -62,9 +67,8 @@ app.post("/registro", (req, res) => {
 
           const user = users[0];
 
-          // 🔄 última entrada/salida SOLO en ese edificio
           db.query(
-            `SELECT * FROM registros 
+            `SELECT * FROM registros
              WHERE cedula = ? AND edificio_id = ?
              ORDER BY fecha_hora DESC LIMIT 1`,
             [cedula, edificio.id],
@@ -76,7 +80,6 @@ app.post("/registro", (req, res) => {
                 tipo = "Salida";
               }
 
-              // 💾 guardar registro
               db.query(
                 `INSERT INTO registros
                 (nombre, cedula, edificio, edificio_id, tipo_registro, rol)
@@ -88,8 +91,8 @@ app.post("/registro", (req, res) => {
 
                   res.json({
                     mensaje: `${tipo} registrada`,
-                    rol: user.rol,
-                    edificio: edificio.nombre
+                    edificio: edificio.nombre,
+                    rol: user.rol
                   });
                 }
               );

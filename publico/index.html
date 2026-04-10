@@ -170,7 +170,12 @@ if (!codigo) {
   document.body.innerHTML = "<h2>Acceso denegado ❌</h2>";
 }
 
-codigo = codigo.trim().toLowerCase();
+// 🔥 NORMALIZAR QR (CLAVE)
+codigo = codigo
+  .trim()
+  .toLowerCase()
+  .replace(/\s/g, "")
+  .replace(/\./g, "");
 
 // 🏢 NOMBRE EDIFICIO
 document.getElementById("edificio").innerText =
@@ -186,7 +191,7 @@ document.getElementById("form").onsubmit = async (e) => {
   try {
     const res = await fetch("/registro", {
       method: "POST",
-      headers: {"Content-Type":"application/json"},
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         cedula,
         codigoEdificio: codigo
