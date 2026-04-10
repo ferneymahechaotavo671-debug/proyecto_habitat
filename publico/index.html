@@ -3,143 +3,80 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Registro de Ingreso / Salida</title>
+<title>Registro QR</title>
 
 <style>
-/* RESET */
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    font-family: Arial, Helvetica, sans-serif;
-}
-
-/* FONDO */
 body {
-    background: linear-gradient(135deg, #0f3d2e, #1f7a63, #38b48b);
-    min-height: 100vh;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+  background: linear-gradient(135deg, #0f3d2e, #1f7a63, #38b48b);
+  font-family: Arial;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
 }
 
-/* CONTENEDOR */
 .container {
-    background: rgba(255, 255, 255, 0.95);
-    padding: 30px;
-    border-radius: 20px;
-    width: 90%;
-    max-width: 420px;
-    box-shadow: 0px 10px 30px rgba(0,0,0,0.3);
-    text-align: center;
+  background: white;
+  padding: 25px;
+  border-radius: 15px;
+  width: 90%;
+  max-width: 400px;
+  text-align: center;
 }
 
-/* LOGO */
-.logo {
-    width: 120px;
-    margin-bottom: 15px;
+input, button {
+  width: 100%;
+  padding: 10px;
+  margin-top: 10px;
 }
 
-/* TITULO */
-h1 {
-    color: #0f3d2e;
-    margin-bottom: 20px;
-}
-
-/* SUBTITULO EDIFICIO */
-h3 {
-    color: #1f7a63;
-    margin-bottom: 15px;
-}
-
-/* FORM */
-form {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-}
-
-/* INPUTS */
-input {
-    width: 100%;
-    padding: 12px;
-    border-radius: 10px;
-    border: 1px solid #ccc;
-    outline: none;
-    transition: 0.3s;
-}
-
-input:focus {
-    border-color: #1f7a63;
-    box-shadow: 0 0 8px rgba(31,122,99,0.5);
-}
-
-/* BOTÓN */
 button {
-    padding: 12px;
-    border: none;
-    border-radius: 10px;
-    background: linear-gradient(135deg, #1f7a63, #38b48b);
-    color: white;
-    font-size: 16px;
-    cursor: pointer;
-    transition: 0.3s;
+  background: #1f7a63;
+  color: white;
+  border: none;
+  cursor: pointer;
 }
 
-button:hover {
-    transform: scale(1.05);
-}
-
-/* MENSAJE */
 #msg {
-    margin-top: 15px;
-    font-weight: bold;
-    transition: 0.3s;
-}
-
-/* ERROR */
-.error {
-    color: red;
-}
-
-/* SUCCESS */
-.success {
-    color: #1f7a63;
-}
-
-/* RESPONSIVE */
-@media (max-width: 480px) {
-    .container {
-        width: 95%;
-        padding: 20px;
-    }
+  margin-top: 10px;
 }
 </style>
-
 </head>
 
 <body>
 
 <div class="container">
 
-  <img src="logo.png" class="logo">
-
-  <h1>Registro de Ingreso / Salida</h1>
-
-  <h3 id="edificio"></h3>
+  <h2 id="edificio">Validando...</h2>
 
   <form id="form">
-    <input type="text" id="cedula" placeholder="Ingrese su cédula" required>
-    <button type="submit">Registrar</button>
+    <input type="text" id="cedula" placeholder="Cédula" required>
+    <button>Registrar</button>
   </form>
 
   <p id="msg"></p>
-
 </div>
 
 <script>
 
-// 📍 EDIFICIOS
+// QR desde URL
+const params = new URLSearchParams(location.search);
+let codigo = params.get("edificio");
+
+if (!codigo) {
+  document.body.innerHTML = "<h2>Acceso denegado ❌</h2>";
+  throw new Error("Sin QR");
+}
+
+// NORMALIZAR
+codigo = codigo
+  .toString()
+  .trim()
+  .toLowerCase()
+  .replace(/\s+/g, "")
+  .replace(/\./g, "");
+
+// NOMBRES
 const nombres = {
   arcolsa1: "ED. ARCOLSA 1",
   elpunto: "ED. EL PUNTO",
@@ -162,51 +99,27 @@ const nombres = {
   toscana: "ED. TOSCANA"
 };
 
-// 📷 QR
-const params = new URLSearchParams(location.search);
-let codigo = params.get("edificio");
-
-if (!codigo) {
-  document.body.innerHTML = "<h2>Acceso denegado ❌</h2>";
-}
-
-// 🔥 NORMALIZAR QR (CLAVE)
-codigo = codigo
-  .trim()
-  .toLowerCase()
-  .replace(/\s/g, "")
-  .replace(/\./g, "");
-
-// 🏢 NOMBRE EDIFICIO
 document.getElementById("edificio").innerText =
   nombres[codigo] || "Edificio no válido";
 
-// 🚀 ENVIAR
 document.getElementById("form").onsubmit = async (e) => {
   e.preventDefault();
 
   const cedula = document.getElementById("cedula").value.trim();
   const msg = document.getElementById("msg");
 
-  try {
-    const res = await fetch("/registro", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        cedula,
-        codigoEdificio: codigo
-      })
-    });
+  const res = await fetch("/registro", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      cedula,
+      codigoEdificio: codigo
+    })
+  });
 
-    const data = await res.json();
+  const data = await res.json();
 
-    msg.textContent = data.mensaje;
-    msg.className = "success";
-
-  } catch (err) {
-    msg.textContent = "Error de conexión";
-    msg.className = "error";
-  }
+  msg.innerText = data.mensaje;
 };
 
 </script>

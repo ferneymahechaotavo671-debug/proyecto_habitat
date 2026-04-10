@@ -30,12 +30,13 @@ db.connect(err => {
 ========================= */
 app.post("/registro", (req, res) => {
 
-  let cedula = req.body.cedula?.trim();
-  let codigoEdificio = req.body.codigoEdificio?.trim().toLowerCase();
+  let cedula = req.body.cedula?.toString().trim();
 
-  // 🔥 NORMALIZAR QR
-  codigoEdificio = codigoEdificio
-    .replace(/\s/g, "")
+  let codigoEdificio = req.body.codigoEdificio
+    ?.toString()
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "")
     .replace(/\./g, "");
 
   if (!cedula || !codigoEdificio) {
@@ -49,7 +50,7 @@ app.post("/registro", (req, res) => {
     (err, eds) => {
 
       if (err) return res.status(500).json({ mensaje: "Error servidor" });
-      if (eds.length === 0) return res.json({ mensaje: "QR inválido" });
+      if (eds.length === 0) return res.json({ mensaje: "QR inválido ❌" });
 
       const edificio = eds[0];
 
@@ -90,7 +91,7 @@ app.post("/registro", (req, res) => {
                   if (err) return res.status(500).json({ mensaje: "Error registro" });
 
                   res.json({
-                    mensaje: `${tipo} registrada`,
+                    mensaje: `${tipo} registrada ✅`,
                     edificio: edificio.nombre,
                     rol: user.rol
                   });
