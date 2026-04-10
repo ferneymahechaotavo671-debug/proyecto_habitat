@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Admin Panel</title>
+<title>Admin</title>
 
 <style>
 
@@ -20,7 +20,6 @@ body {
   background: linear-gradient(135deg, #0f3d2e, #1f7a63, #38b48b);
   min-height: 100vh;
   padding: 20px;
-  color: #111;
 }
 
 /* CONTENEDOR */
@@ -92,7 +91,7 @@ td {
   text-align: center;
 }
 
-/* FORMULARIO MODAL */
+/* FORMULARIO */
 #formulario {
   display: none;
   position: fixed;
@@ -117,8 +116,8 @@ td {
 }
 
 #formulario h3 {
-  margin-bottom: 10px;
   color: #0f3d2e;
+  margin-bottom: 10px;
 }
 
 </style>
@@ -137,6 +136,11 @@ td {
 <input id="cedula" placeholder="Cédula">
 
 <button onclick="cargar()">Filtrar</button>
+
+<!-- 🔥 NUEVOS BOTONES -->
+<button onclick="exportarExcel()">📥 Excel</button>
+<button onclick="generarReporte()">📊 Reporte</button>
+
 <button onclick="mostrarFormulario()">➕ Agregar Persona</button>
 
 </div>
@@ -181,7 +185,9 @@ td {
 
 <script>
 
-// 🔥 FUNCIONES
+// ======================
+// CARGAR EDIFICIOS
+// ======================
 async function loadEdificios(){
   const res = await fetch("/admin/edificios");
   const data = await res.json();
@@ -193,6 +199,9 @@ async function loadEdificios(){
   });
 }
 
+// ======================
+// FILTRAR REGISTROS
+// ======================
 async function cargar(){
 
   let e = document.getElementById("edificio").value;
@@ -224,7 +233,9 @@ async function cargar(){
   });
 }
 
-// FORM
+// ======================
+// FORMULARIO
+// ======================
 function mostrarFormulario(){
   document.getElementById("formulario").style.display = "block";
 }
@@ -245,6 +256,9 @@ async function cargarEdificiosForm(){
   });
 }
 
+// ======================
+// GUARDAR USUARIO
+// ======================
 async function guardarPersona(){
 
   const nombre = document.getElementById("nombre").value.trim();
@@ -275,6 +289,38 @@ async function guardarPersona(){
   alert(data.mensaje);
 
   cerrarFormulario();
+}
+
+// ======================
+// 🔥 EXPORTAR EXCEL
+// ======================
+function exportarExcel(){
+
+  let e = document.getElementById("edificio").value;
+  let c = document.getElementById("cedula").value;
+
+  let url = "/admin/export-excel?";
+
+  if(e) url += "edificio_id="+e+"&";
+  if(c) url += "cedula="+c;
+
+  window.open(url, "_blank");
+}
+
+// ======================
+// 📊 REPORTE
+// ======================
+function generarReporte(){
+
+  let e = document.getElementById("edificio").value;
+  let c = document.getElementById("cedula").value;
+
+  let url = "/admin/reporte?";
+
+  if(e) url += "edificio_id="+e+"&";
+  if(c) url += "cedula="+c;
+
+  window.open(url, "_blank");
 }
 
 // INIT
