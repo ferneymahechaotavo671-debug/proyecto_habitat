@@ -3,65 +3,116 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Registro</title>
+<title>Registro de Ingreso / Salida</title>
 
 <style>
+/* RESET */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+/* FONDO */
 body {
-  font-family: Arial, sans-serif;
-  background: linear-gradient(135deg, #0f172a, #1e293b);
-  margin: 0;
-  height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  color: white;
+    background: linear-gradient(135deg, #0f3d2e, #1f7a63, #38b48b);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
-.card {
-  background: white;
-  color: #111;
-  padding: 30px;
-  border-radius: 15px;
-  width: 320px;
-  text-align: center;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+/* CONTENEDOR */
+.container {
+    background: rgba(255, 255, 255, 0.95);
+    padding: 30px;
+    border-radius: 20px;
+    width: 90%;
+    max-width: 420px;
+    box-shadow: 0px 10px 30px rgba(0,0,0,0.3);
+    text-align: center;
 }
 
-h2 {
-  margin-bottom: 5px;
+/* LOGO */
+.logo {
+    width: 120px;
+    margin-bottom: 15px;
 }
 
+/* TITULO */
+h1 {
+    color: #0f3d2e;
+    margin-bottom: 20px;
+}
+
+/* SUBTITULO EDIFICIO */
 h3 {
-  color: #2563eb;
-  margin-bottom: 20px;
+    color: #1f7a63;
+    margin-bottom: 15px;
 }
 
+/* FORM */
+form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+/* INPUTS */
 input {
-  width: 100%;
-  padding: 12px;
-  margin-bottom: 15px;
-  border: 1px solid #ccc;
-  border-radius: 8px;
+    width: 100%;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid #ccc;
+    outline: none;
+    transition: 0.3s;
 }
 
+input:focus {
+    border-color: #1f7a63;
+    box-shadow: 0 0 8px rgba(31,122,99,0.5);
+}
+
+/* BOTÓN */
 button {
-  width: 100%;
-  padding: 12px;
-  background: #2563eb;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 16px;
+    padding: 12px;
+    border: none;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #1f7a63, #38b48b);
+    color: white;
+    font-size: 16px;
+    cursor: pointer;
+    transition: 0.3s;
 }
 
 button:hover {
-  background: #1e40af;
+    transform: scale(1.05);
 }
 
+/* MENSAJE */
 #msg {
-  margin-top: 15px;
-  font-weight: bold;
+    margin-top: 15px;
+    font-weight: bold;
+    transition: 0.3s;
+}
+
+/* ERROR */
+.error {
+    color: red;
+}
+
+/* SUCCESS */
+.success {
+    color: #1f7a63;
+}
+
+/* RESPONSIVE */
+@media (max-width: 480px) {
+    .container {
+        width: 95%;
+        padding: 20px;
+    }
 }
 </style>
 
@@ -69,23 +120,49 @@ button:hover {
 
 <body>
 
-<div class="card">
+<div class="container">
 
-<h2>Registro de Ingreso / Salida</h2>
+  <img src="logo.png" class="logo">
 
-<h3 id="edificio"></h3>
+  <h1>Registro de Ingreso / Salida</h1>
 
-<form id="form">
-  <input type="text" id="cedula" placeholder="Cédula" required>
-  <button type="submit">Registrar</button>
-</form>
+  <h3 id="edificio"></h3>
 
-<p id="msg"></p>
+  <form id="form">
+    <input type="text" id="cedula" placeholder="Ingrese su cédula" required>
+    <button type="submit">Registrar</button>
+  </form>
+
+  <p id="msg"></p>
 
 </div>
 
 <script>
 
+// 📍 EDIFICIOS
+const nombres = {
+  arcolsa1: "ED. ARCOLSA 1",
+  elpunto: "ED. EL PUNTO",
+  calle91: "CALLE 91 PH",
+  cerrosales: "ED. CERROSALES",
+  balconesemaus: "ED. BALCONES DE EMAUS",
+  torreverne: "ED. TORRE VERNE",
+  sanjake: "ED. SANJAKE",
+  plaza94: "ED. PLAZA 94",
+  parque86: "ED. PARQUE 86",
+  santorini: "ED. SANTORINI",
+  in91: "ED. 91 IN",
+  iflat63: "ED. IFLAT 63",
+  kubik54: "ED. KUBIK 54",
+  lagospontevedra: "ED. LAGOS DE PONTEVEDRA",
+  vita106: "ED. VITA 106",
+  conquistador: "ED. CONQUISTADOR",
+  urapanes: "ED. URAPANES",
+  callejonparque: "ED. CALLEJON DEL PARQUE",
+  toscana: "ED. TOSCANA"
+};
+
+// 📷 QR
 const params = new URLSearchParams(location.search);
 let codigo = params.get("edificio");
 
@@ -95,22 +172,36 @@ if (!codigo) {
 
 codigo = codigo.trim().toLowerCase();
 
-document.getElementById("edificio").innerText = codigo;
+// 🏢 NOMBRE EDIFICIO
+document.getElementById("edificio").innerText =
+  nombres[codigo] || "Edificio no válido";
 
+// 🚀 ENVIAR
 document.getElementById("form").onsubmit = async (e) => {
   e.preventDefault();
 
   const cedula = document.getElementById("cedula").value.trim();
+  const msg = document.getElementById("msg");
 
-  const res = await fetch("/registro", {
-    method: "POST",
-    headers: {"Content-Type":"application/json"},
-    body: JSON.stringify({ cedula, codigoEdificio: codigo })
-  });
+  try {
+    const res = await fetch("/registro", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({
+        cedula,
+        codigoEdificio: codigo
+      })
+    });
 
-  const data = await res.json();
+    const data = await res.json();
 
-  document.getElementById("msg").innerText = data.mensaje;
+    msg.textContent = data.mensaje;
+    msg.className = "success";
+
+  } catch (err) {
+    msg.textContent = "Error de conexión";
+    msg.className = "error";
+  }
 };
 
 </script>
