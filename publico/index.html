@@ -3,28 +3,28 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Registro de Ingreso / Salida</title>
+<title>Registro</title>
 
 <style>
 body {
   font-family: Arial, sans-serif;
-  background: linear-gradient(135deg, #1f2937, #111827);
+  background: linear-gradient(135deg, #0f172a, #1e293b);
   margin: 0;
+  height: 100vh;
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 100vh;
-  color: #fff;
+  color: white;
 }
 
-.container {
-  background: #ffffff;
+.card {
+  background: white;
   color: #111;
   padding: 30px;
   border-radius: 15px;
-  width: 350px;
+  width: 320px;
   text-align: center;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+  box-shadow: 0 10px 25px rgba(0,0,0,0.4);
 }
 
 h2 {
@@ -42,7 +42,6 @@ input {
   margin-bottom: 15px;
   border: 1px solid #ccc;
   border-radius: 8px;
-  font-size: 16px;
 }
 
 button {
@@ -52,9 +51,8 @@ button {
   color: white;
   border: none;
   border-radius: 8px;
-  font-size: 16px;
   cursor: pointer;
-  transition: 0.3s;
+  font-size: 16px;
 }
 
 button:hover {
@@ -71,47 +69,23 @@ button:hover {
 
 <body>
 
-<div class="container">
+<div class="card">
 
-  <h2>Registro de Ingreso / Salida</h2>
+<h2>Registro de Ingreso / Salida</h2>
 
-  <h3 id="edificio"></h3>
+<h3 id="edificio"></h3>
 
-  <form id="form">
-    <input type="text" id="cedula" placeholder="Ingrese su cédula" required>
-    <button type="submit">Registrar</button>
-  </form>
+<form id="form">
+  <input type="text" id="cedula" placeholder="Cédula" required>
+  <button type="submit">Registrar</button>
+</form>
 
-  <p id="msg"></p>
+<p id="msg"></p>
 
 </div>
 
 <script>
 
-// 📍 Edificios
-const nombres = {
-  arcolsa1: "ED. ARCOLSA 1",
-  elpunto: "ED. EL PUNTO",
-  calle91: "CALLE 91 PH",
-  cerrosales: "ED. CERROSALES",
-  balconesemaus: "ED. BALCONES DE EMAUS",
-  torreverne: "ED. TORRE VERNE",
-  sanjake: "ED. SANJAKE",
-  plaza94: "ED. PLAZA 94",
-  parque86: "ED. PARQUE 86",
-  santorini: "ED. SANTORINI",
-  in91: "ED. 91 IN",
-  iflat63: "ED. IFLAT 63",
-  kubik54: "ED. KUBIK 54",
-  lagospontevedra: "ED. LAGOS DE PONTEVEDRA",
-  vita106: "ED. VITA 106",
-  conquistador: "ED. CONQUISTADOR",
-  urapanes: "ED. URAPANES",
-  callejonparque: "ED. CALLEJON DEL PARQUE",
-  toscana: "ED. TOSCANA"
-};
-
-// 📷 QR
 const params = new URLSearchParams(location.search);
 let codigo = params.get("edificio");
 
@@ -121,30 +95,22 @@ if (!codigo) {
 
 codigo = codigo.trim().toLowerCase();
 
-// 🏢 Nombre edificio
-document.getElementById("edificio").innerText =
-  nombres[codigo] || "Edificio no válido";
+document.getElementById("edificio").innerText = codigo;
 
-// 🚀 enviar
 document.getElementById("form").onsubmit = async (e) => {
   e.preventDefault();
 
   const cedula = document.getElementById("cedula").value.trim();
 
-  try {
-    const res = await fetch("/registro", {
-      method: "POST",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({ cedula, codigoEdificio: codigo })
-    });
+  const res = await fetch("/registro", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({ cedula, codigoEdificio: codigo })
+  });
 
-    const data = await res.json();
+  const data = await res.json();
 
-    document.getElementById("msg").innerText = data.mensaje;
-
-  } catch (err) {
-    document.getElementById("msg").innerText = "Error de conexión";
-  }
+  document.getElementById("msg").innerText = data.mensaje;
 };
 
 </script>
