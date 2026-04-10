@@ -110,15 +110,15 @@ app.post("/registro", (req, res) => {
 
               db.query(
                 `INSERT INTO registros
-                (nombre, cedula, edificio, tipo_registro, fecha_hora, edificio_id) 
+                (nombre, cedula, edificio, tipo_registro, edificio_id, rol) 
                 VALUES (?, ?, ?, ?, ?, ?)`,
                 [
                   user.nombre, 
                   cedula,
                   edificio.nombre,
                   tipo,
-                  fechaColombia(),
-                  edificio.id
+                  edificio.id,
+                  user.rol
                 ],
                 (err) => {
 
@@ -169,7 +169,7 @@ app.get("/admin/registros", (req, res) => {
   }
 
   // 🔥 ORDEN CRONOLÓGICO REAL
-  sql += " ORDER BY r.fecha_hora ASC";
+  sql += " ORDER BY r.fecha_hora ASC, id ASC";
 
   db.query(sql, params, (err, data) => {
     if (err) return res.status(500).json(err);
