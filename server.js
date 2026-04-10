@@ -4,6 +4,13 @@ const path = require("path");
 const ExcelJS = require("exceljs");
 const cron = require("node-cron");
 
+// fecha y hora automatico colombia
+function fechaColombia() {
+  return new Date().toLocaleString("sv-SE", {
+    timeZone: "America/Bogota"
+  }).replace("T", " ");
+}
+
 const app = express();
 const PORT = process.env.PORT || 8080;
 
@@ -83,9 +90,16 @@ app.post("/registro", (req, res) => {
 
               db.query(
   `INSERT INTO registros
-  (nombre, cedula, edificio, edificio_id, tipo_registro)
-  VALUES (?, ?, ?, ?, ?)`,
-  [user.nombre, cedula, edificio.nombre, edificio.id, tipo],
+  (nombre, cedula, edificio, tipo_registro, fecha_hora, edificio_id) 
+  VALUES (?, ?, ?, ?, ?, ?)`,
+  [
+  usuario.nombre,
+  cedula,
+  edificio.nombre,
+  tipo,
+  fechaColombia(),
+  edificio.id
+],
                 (err) => {
 
                   if (err) return res.status(500).json({ mensaje: "Error registro" });
