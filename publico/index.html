@@ -2,24 +2,94 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Registro</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Registro de Acceso</title>
+
+<style>
+body{
+  margin:0;
+  font-family: Arial, sans-serif;
+  background: linear-gradient(135deg,#1e3c72,#2a5298);
+  height:100vh;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+}
+
+.container{
+  background:white;
+  padding:30px;
+  border-radius:15px;
+  width:320px;
+  text-align:center;
+  box-shadow:0 10px 30px rgba(0,0,0,0.3);
+}
+
+h2{
+  margin-bottom:5px;
+  color:#2c3e50;
+}
+
+h3{
+  color:#555;
+  font-size:16px;
+  margin-bottom:20px;
+}
+
+input{
+  width:100%;
+  padding:10px;
+  margin:10px 0;
+  border:1px solid #ccc;
+  border-radius:8px;
+}
+
+button{
+  width:100%;
+  padding:10px;
+  background:#2a5298;
+  color:white;
+  border:none;
+  border-radius:8px;
+  cursor:pointer;
+  font-weight:bold;
+}
+
+button:hover{
+  background:#1e3c72;
+}
+
+#msg{
+  margin-top:10px;
+  font-weight:bold;
+}
+
+.error{color:red;}
+.success{color:green;}
+</style>
+
 </head>
+
 <body>
 
-<h2>Registro de Ingreso / Salida</h2>
+<div class="container">
 
-<h3 id="edificio"></h3>
+<h2>Registro de Acceso</h2>
+
+<h3 id="edificio">Cargando...</h3>
 
 <form id="form">
-  <input type="text" id="cedula" placeholder="Cédula" required>
+  <input type="text" id="cedula" placeholder="Ingrese su cédula" required>
   <button>Registrar</button>
 </form>
 
 <p id="msg"></p>
 
+</div>
+
 <script>
 
-// 📍 MAPA DE EDIFICIOS
+// 📍 EDIFICIOS
 const nombres = {
   arcolsa1: "ED. ARCOLSA 1",
   elpunto: "ED. EL PUNTO",
@@ -42,51 +112,39 @@ const nombres = {
   toscana: "ED. TOSCANA"
 };
 
-// 📷 OBTENER QR
+// 📷 QR
 const params = new URLSearchParams(location.search);
 let codigo = params.get("edificio");
 
-// 🔐 VALIDACIÓN QR
-if (!codigo) {
-  document.body.innerHTML = "<h2>Acceso denegado ❌</h2>";
+if(!codigo){
+  document.body.innerHTML = "<h2 style='color:white;'>Acceso denegado ❌</h2>";
 }
 
 codigo = codigo.trim().toLowerCase();
 
-// 🏢 MOSTRAR NOMBRE REAL
+// 🏢 nombre edificio
 document.getElementById("edificio").innerText =
   nombres[codigo] || "Edificio no válido";
 
-// 🚀 ENVIAR REGISTRO
+// 🚀 registro
 document.getElementById("form").onsubmit = async (e) => {
   e.preventDefault();
 
   const cedula = document.getElementById("cedula").value.trim();
+  const msg = document.getElementById("msg");
 
-  if (!cedula) {
-    document.getElementById("msg").innerText = "Ingrese la cédula";
-    return;
-  }
+  const res = await fetch("/registro", {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({ cedula, codigoEdificio: codigo })
+  });
 
-  try {
-    const res = await fetch("/registro", {
-      method: "POST",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({
-        cedula,
-        codigoEdificio: codigo
-      })
-    });
+  const data = await res.json();
 
-    const data = await res.json();
+  msg.innerText = data.mensaje;
+  msg.className = "success";
 
-    document.getElementById("msg").innerText = data.mensaje;
-
-    document.getElementById("form").reset();
-
-  } catch (err) {
-    document.getElementById("msg").innerText = "Error de conexión";
-  }
+  document.getElementById("form").reset();
 };
 
 </script>
