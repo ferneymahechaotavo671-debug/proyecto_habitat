@@ -188,9 +188,51 @@ const nombres = {
 document.getElementById("edificio").innerText =
   nombres[codigo] || "Edificio no válido";
 
+
+// ==============================
+// ⏱️ TIEMPO PERSISTENTE (NO REINICIA)
+// ==============================
+const TIEMPO_LIMITE = 20 * 60 * 1000;
+
+let inicioGuardado = localStorage.getItem("inicioQR");
+
+if (!inicioGuardado) {
+  inicioGuardado = Date.now();
+  localStorage.setItem("inicioQR", inicioGuardado);
+}
+
+const inicio = parseInt(inicioGuardado);
+
+// ⛔ VALIDAR TIEMPO
+function verificarTiempo() {
+  const ahora = Date.now();
+  const pasado = ahora - inicio;
+
+  if (pasado > TIEMPO_LIMITE) {
+
+    localStorage.removeItem("inicioQR");
+
+    document.body.innerHTML = `
+      <div style="text-align:center; margin-top:50px;">
+        <h2>⏰ Sesión expirada</h2>
+        <p>Debes escanear nuevamente el QR</p>
+      </div>
+    `;
+    return false;
+  }
+  return true;
+}
+
+// 🚫 VALIDAR AL ENTRAR
+if (!verificarTiempo()) {
+  throw new Error("QR expirado");
+}
+
 // ENVIAR
 document.getElementById("form").onsubmit = async (e) => {
   e.preventDefault();
+
+  if (!verificarTiempo()) return;
 
   const cedula = document.getElementById("cedula").value.trim();
   const msg = document.getElementById("mensaje");
