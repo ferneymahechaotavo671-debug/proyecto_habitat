@@ -82,10 +82,10 @@ app.post("/registro", (req, res) => {
               }
 
               db.query(
-                `INSERT INTO registros
-                (nombre, cedula, edificio, edificio_id, tipo_registro, rol)
-                VALUES (?, ?, ?, ?, ?, ?)`,
-                [user.nombre, cedula, edificio.nombre, edificio.id, tipo, user.rol],
+  `INSERT INTO registros
+  (nombre, cedula, edificio, edificio_id, tipo_registro)
+  VALUES (?, ?, ?, ?, ?)`,
+  [user.nombre, cedula, edificio.nombre, edificio.id, tipo],
                 (err) => {
 
                   if (err) return res.status(500).json({ mensaje: "Error registro" });
