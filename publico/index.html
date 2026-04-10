@@ -1,48 +1,27 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Registro</title>
-  <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<title>Registro</title>
 </head>
 <body>
 
-<div class="container">
-  <img src="logo.png" alt="Logo" class="logo">
+<h2>Registro de Ingreso / Salida</h2>
 
-  <h1>Registro de Ingreso / Salida</h1>
+<h3 id="edificio"></h3>
 
-  <h3 id="nombreEdificio"></h3>
+<form id="form">
+  <input type="text" id="cedula" placeholder="Cédula" required>
+  <button>Registrar</button>
+</form>
 
-  <form id="registroForm">
-    <input type="text" id="cedula" placeholder="Ingrese su cédula" required>
-    <button type="submit">Registrar</button>
-  </form>
-
-  <p id="mensaje"></p>
-</div>
+<p id="msg"></p>
 
 <script>
 
-const form = document.getElementById("registroForm");
-const mensaje = document.getElementById("mensaje");
-
-// 📷 Obtener QR
-const params = new URLSearchParams(window.location.search);
-let codigoEdificio = params.get("edificio");
-
-// 🔐 Bloquear si no viene del QR
-if (!codigoEdificio) {
-  document.body.innerHTML = "<h2 style='text-align:center;'>Acceso no autorizado ❌</h2>";
-}
-
-// 🧼 Limpiar datos
-codigoEdificio = codigoEdificio?.trim().toLowerCase();
-
-// 🏢 Mostrar nombre bonito
+// 📍 MAPA DE EDIFICIOS
 const nombres = {
-  arcolsa1: "ED.ARCOLSA 1",
+  arcolsa1: "ED. ARCOLSA 1",
   elpunto: "ED. EL PUNTO",
   calle91: "CALLE 91 PH",
   cerrosales: "ED. CERROSALES",
@@ -50,48 +29,65 @@ const nombres = {
   torreverne: "ED. TORRE VERNE",
   sanjake: "ED. SANJAKE",
   plaza94: "ED. PLAZA 94",
-  parque86: "ED. PARQUE 86"
+  parque86: "ED. PARQUE 86",
+  santorini: "ED. SANTORINI",
+  in91: "ED. 91 IN",
+  iflat63: "ED. IFLAT 63",
+  kubik54: "ED. KUBIK 54",
+  lagospontevedra: "ED. LAGOS DE PONTEVEDRA",
+  vita106: "ED. VITA 106",
+  conquistador: "ED. CONQUISTADOR",
+  urapanes: "ED. URAPANES",
+  callejonparque: "ED. CALLEJON DEL PARQUE",
+  toscana: "ED. TOSCANA"
 };
 
-document.getElementById("nombreEdificio").innerText = nombres[codigoEdificio] || "";
+// 📷 OBTENER QR
+const params = new URLSearchParams(location.search);
+let codigo = params.get("edificio");
 
-// 🚀 Enviar
-form.addEventListener("submit", async (e) => {
+// 🔐 VALIDACIÓN QR
+if (!codigo) {
+  document.body.innerHTML = "<h2>Acceso denegado ❌</h2>";
+}
+
+codigo = codigo.trim().toLowerCase();
+
+// 🏢 MOSTRAR NOMBRE REAL
+document.getElementById("edificio").innerText =
+  nombres[codigo] || "Edificio no válido";
+
+// 🚀 ENVIAR REGISTRO
+document.getElementById("form").onsubmit = async (e) => {
   e.preventDefault();
 
   const cedula = document.getElementById("cedula").value.trim();
 
   if (!cedula) {
-    mensaje.textContent = "Ingrese la cédula";
-    mensaje.className = "show error";
+    document.getElementById("msg").innerText = "Ingrese la cédula";
     return;
   }
 
   try {
-    const respuesta = await fetch("/registro", {
+    const res = await fetch("/registro", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
+      headers: {"Content-Type":"application/json"},
       body: JSON.stringify({
-        cedula: cedula.trim(),
-        codigoEdificio: codigoEdificio
+        cedula,
+        codigoEdificio: codigo
       })
     });
 
-    const resultado = await respuesta.json();
+    const data = await res.json();
 
-    mensaje.textContent = resultado.mensaje;
-    mensaje.className = "show success";
+    document.getElementById("msg").innerText = data.mensaje;
 
-    form.reset();
+    document.getElementById("form").reset();
 
-  } catch (error) {
-    console.error(error);
-    mensaje.textContent = "Error de conexión";
-    mensaje.className = "show error";
+  } catch (err) {
+    document.getElementById("msg").innerText = "Error de conexión";
   }
-});
+};
 
 </script>
 
