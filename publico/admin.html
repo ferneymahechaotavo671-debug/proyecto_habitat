@@ -1,194 +1,151 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <title>Panel Admin</title>
-
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #eef2f7;
-      margin: 0;
-      padding: 20px;
-    }
-
-    h1 {
-      text-align: center;
-      margin-bottom: 10px;
-    }
-
-    .contador {
-      text-align: center;
-      margin-bottom: 20px;
-      font-weight: bold;
-      color: #2c3e50;
-    }
-
-    .botones {
-      text-align: center;
-      margin-bottom: 15px;
-    }
-
-    button {
-      padding: 10px 20px;
-      margin: 5px;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      color: white;
-      font-weight: bold;
-    }
-
-    .excel { background: #27ae60; }
-    .excel:hover { background: #219150; }
-
-    .mensual { background: #2980b9; }
-    .mensual:hover { background: #1f6691; }
-
-    .filtros {
-      text-align: center;
-      margin-bottom: 20px;
-    }
-
-    select, input {
-      padding: 8px;
-      margin: 5px;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      background: white;
-      border-radius: 10px;
-      overflow: hidden;
-    }
-
-    th {
-      background: #2c3e50;
-      color: white;
-      padding: 10px;
-    }
-
-    td {
-      padding: 10px;
-      border-bottom: 1px solid #ddd;
-      text-align: center;
-    }
-
-    tr:hover {
-      background: #f2f2f2;
-    }
-  </style>
+<meta charset="UTF-8">
+<title>Admin</title>
 </head>
-
 <body>
 
-<h1>📊 Panel de Administración</h1>
+<h1>Panel Admin</h1>
 
-<div class="contador" id="contador">Total registros: 0</div>
+<select id="edificio"></select>
+<input id="cedula" placeholder="Cédula">
+<button onclick="cargar()">Filtrar</button>
+<button onclick="mostrarFormulario()">➕ Agregar Persona</button>
 
-<div class="botones">
-  <button class="excel" onclick="exportarExcel()">📥 Excel General</button>
-  <button class="mensual" onclick="reporteMensual()">📅 Reporte Mensual</button>
-</div>
-
-<!-- 🔥 FILTROS -->
-<div class="filtros">
-  <select id="filtroEdificio">
-    <option value="">Todos los edificios</option>
-  </select>
-
-  <input type="text" id="filtroCedula" placeholder="Buscar cédula">
-
-  <button onclick="cargarRegistros()">Filtrar</button>
-</div>
-
-<table>
-  <thead>
-    <tr>
-      <th>ID</th>
-      <th>Nombre</th>
-      <th>Cédula</th>
-      <th>Edificio</th>
-      <th>Tipo</th>
-      <th>Fecha</th>
-    </tr>
-  </thead>
-  <tbody id="tablaRegistros"></tbody>
+<table border="1">
+<thead>
+<tr>
+<th>ID</th><th>Nombre</th><th>Cédula</th><th>Edificio</th><th>Rol</th><th>Tipo</th><th>Fecha</th>
+</tr>
+</thead>
+<tbody id="tabla"></tbody>
 </table>
+
+<!-- 🔥 FORMULARIO -->
+<div id="formulario" style="display:none; position:fixed; top:15%; left:35%; background:white; padding:20px; border:1px solid #ccc; z-index:999; width:300px;">
+
+<h3>Agregar Persona</h3>
+
+<input id="nombre" placeholder="Nombre completo" style="width:100%; margin:5px 0;">
+<input id="cedulaNuevo" placeholder="Cédula" style="width:100%; margin:5px 0;">
+
+<select id="rol" style="width:100%; margin:5px 0;">
+  <option value="1">Administración</option>
+  <option value="2">Vigilancia</option>
+  <option value="3">Servicios Generales</option>
+</select>
+
+<select id="edificioNuevo" multiple style="width:100%; height:120px; margin:5px 0;"></select>
+
+<button onclick="guardarPersona()" style="width:100%; margin-top:10px;">Guardar</button>
+<button onclick="cerrarFormulario()" style="width:100%; margin-top:5px;">Cerrar</button>
+
+</div>
 
 <script>
 
-function cargarEdificios() {
-  fetch("/admin/edificios")
-    .then(res => res.json())
-    .then(data => {
-      const select = document.getElementById("filtroEdificio");
+async function loadEdificios(){
+  const res = await fetch("/admin/edificios");
+  const data = await res.json();
 
-      data.forEach(e => {
-        const option = document.createElement("option");
-        option.value = e.id;
-        option.textContent = e.nombre;
-        select.appendChild(option);
-      });
-    });
+  const sel = document.getElementById("edificio");
+
+  data.forEach(e=>{
+    sel.innerHTML += `<option value="${e.id}">${e.nombre}</option>`;
+  });
 }
 
-function cargarRegistros() {
-  const edificio = document.getElementById("filtroEdificio").value;
-  const cedula = document.getElementById("filtroCedula").value;
+async function cargar(){
+
+  let e = document.getElementById("edificio").value;
+  let c = document.getElementById("cedula").value;
 
   let url = "/admin/registros?";
 
-  if (edificio) url += `edificio_id=${edificio}&`;
-  if (cedula) url += `cedula=${cedula}`;
+  if(e) url += "edificio_id="+e+"&";
+  if(c) url += "cedula="+c;
 
-  fetch(url)
-    .then(res => res.json())
-    .then(data => {
-      const tabla = document.getElementById("tablaRegistros");
-      const contador = document.getElementById("contador");
+  const res = await fetch(url);
+  const data = await res.json();
 
-      tabla.innerHTML = "";
-      contador.innerText = "Total registros: " + data.length;
+  const t = document.getElementById("tabla");
+  t.innerHTML = "";
 
-      if (data.length === 0) {
-        tabla.innerHTML = "<tr><td colspan='6'>No hay registros</td></tr>";
-        return;
-      }
-
-      data.forEach(r => {
-        tabla.innerHTML += `
-          <tr>
-            <td>${r.id}</td>
-            <td>${r.nombre}</td>
-            <td>${r.cedula}</td>
-            <td>${r.edificio_nombre || r.edificio}</td>
-            <td>${r.tipo_registro}</td>
-            <td>${new Date(r.fecha_hora).toLocaleString("es-CO")}</td>
-          </tr>
-        `;
-      });
-    });
+  data.forEach(r=>{
+    t.innerHTML += `
+      <tr>
+        <td>${r.id}</td>
+        <td>${r.nombre}</td>
+        <td>${r.cedula}</td>
+        <td>${r.edificio_nombre}</td>
+        <td>${r.rol || "-"}</td>
+        <td>${r.tipo_registro}</td>
+        <td>${r.fecha_hora}</td>
+      </tr>
+    `;
+  });
 }
 
-function exportarExcel() {
-  window.location.href = "/admin/exportar-excel";
+// 🔥 FORMULARIO CONTROL
+function mostrarFormulario(){
+  document.getElementById("formulario").style.display = "block";
 }
 
-function reporteMensual() {
-  const mes = prompt("Ingresa el mes (1-12):");
-  if (!mes) return;
-
-  window.location.href = `/admin/exportar-excel-mensual?mes=${mes}`;
+function cerrarFormulario(){
+  document.getElementById("formulario").style.display = "none";
 }
 
-window.onload = () => {
-  cargarEdificios();
-  cargarRegistros();
-};
+// 🔥 cargar edificios en formulario
+async function cargarEdificiosForm(){
+  const res = await fetch("/admin/edificios");
+  const data = await res.json();
 
-setInterval(cargarRegistros, 5000);
+  const sel = document.getElementById("edificioNuevo");
+  sel.innerHTML = "";
+
+  data.forEach(e=>{
+    sel.innerHTML += `<option value="${e.id}">${e.nombre}</option>`;
+  });
+}
+
+// 🔥 guardar usuario
+async function guardarPersona(){
+
+  const nombre = document.getElementById("nombre").value.trim();
+  const cedula = document.getElementById("cedulaNuevo").value.trim();
+  const rol_id = document.getElementById("rol").value;
+
+  const edificios = Array.from(
+    document.getElementById("edificioNuevo").selectedOptions
+  ).map(o => o.value);
+
+  if(!nombre || !cedula){
+    alert("Completa los datos");
+    return;
+  }
+
+  const res = await fetch("/admin/crear-usuario", {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({
+      nombre,
+      cedula,
+      rol_id,
+      edificios
+    })
+  });
+
+  const data = await res.json();
+  alert(data.mensaje);
+
+  cerrarFormulario();
+}
+
+// INIT
+loadEdificios();
+cargar();
+cargarEdificiosForm();
 
 </script>
 
