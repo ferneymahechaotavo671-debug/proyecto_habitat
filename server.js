@@ -4,11 +4,29 @@ const path = require("path");
 const ExcelJS = require("exceljs");
 const cron = require("node-cron");
 
-// fecha y hora automatico colombia
+// 🔥 FECHA COLOMBIA CORRECTA (FIX REAL)
 function fechaColombia() {
-  return new Date().toLocaleString("sv-SE", {
-    timeZone: "America/Bogota"
-  }).replace("T", " ");
+  const fecha = new Date();
+
+  const opciones = {
+    timeZone: "America/Bogota",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false
+  };
+
+  const partes = new Intl.DateTimeFormat("en-CA", opciones).formatToParts(fecha);
+
+  const map = {};
+  partes.forEach(p => {
+    map[p.type] = p.value;
+  });
+
+  return `${map.year}-${map.month}-${map.day} ${map.hour}:${map.minute}:${map.second}`;
 }
 
 const app = express();
@@ -50,22 +68,14 @@ app.post("/registro", (req, res) => {
     return res.status(400).json({ mensaje: "Datos incompletos ❌" });
   }
 
-  console.log("QR recibido:", codigoEdificio);
-
   db.query(
     `SELECT * FROM edificios
      WHERE LOWER(REPLACE(REPLACE(codigo_qr,' ',''),'.','')) = ?`,
     [codigoEdificio],
     (err, eds) => {
 
-      if (err) {
-        console.error("Error edificios:", err);
-        return res.status(500).json({ mensaje: "Error servidor ❌" });
-      }
-
-      if (eds.length === 0) {
-        return res.json({ mensaje: "QR inválido ❌" });
-      }
+      if (err) return res.status(500).json({ mensaje: "Error servidor ❌" });
+      if (eds.length === 0) return res.json({ mensaje: "QR inválido ❌" });
 
       const edificio = eds[0];
 
@@ -78,14 +88,8 @@ app.post("/registro", (req, res) => {
         [cedula, edificio.id],
         (err, users) => {
 
-          if (err) {
-            console.error("Error usuarios:", err);
-            return res.status(500).json({ mensaje: "Error servidor ❌" });
-          }
-
-          if (users.length === 0) {
-            return res.json({ mensaje: "No autorizado 🚫" });
-          }
+          if (err) return res.status(500).json({ mensaje: "Error servidor ❌" });
+          if (users.length === 0) return res.json({ mensaje: "No autorizado 🚫" });
 
           const user = users[0];
 
@@ -96,10 +100,7 @@ app.post("/registro", (req, res) => {
             [cedula, edificio.id],
             (err, last) => {
 
-              if (err) {
-                console.error("Error registros:", err);
-                return res.status(500).json({ mensaje: "Error servidor ❌" });
-              }
+              if (err) return res.status(500).json({ mensaje: "Error servidor ❌" });
 
               let tipo = "Entrada";
 
@@ -112,7 +113,7 @@ app.post("/registro", (req, res) => {
                 (nombre, cedula, edificio, tipo_registro, fecha_hora, edificio_id) 
                 VALUES (?, ?, ?, ?, ?, ?)`,
                 [
-                  user.nombre, // 🔥 CORREGIDO
+                  user.nombre, 
                   cedula,
                   edificio.nombre,
                   tipo,
@@ -167,13 +168,11 @@ app.get("/admin/registros", (req, res) => {
     params.push(cedula);
   }
 
-  sql += " ORDER BY r.fecha_hora DESC";
+  // 🔥 ORDEN CRONOLÓGICO REAL
+  sql += " ORDER BY r.fecha_hora ASC";
 
   db.query(sql, params, (err, data) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).json(err);
-    }
+    if (err) return res.status(500).json(err);
     res.json(data);
   });
 });
@@ -183,10 +182,7 @@ app.get("/admin/registros", (req, res) => {
 ========================= */
 app.get("/admin/edificios", (req, res) => {
   db.query("SELECT * FROM edificios", (err, data) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).json(err);
-    }
+    if (err) return res.status(500).json(err);
     res.json(data);
   });
 });
@@ -244,11 +240,6 @@ app.get("/admin/exportar-excel-mensual", (req, res) => {
     [mes],
     async (err, data) => {
 
-      if (err) {
-        console.error(err);
-        return res.status(500).send("Error");
-      }
-
       const wb = new ExcelJS.Workbook();
       const ws = wb.addWorksheet("Reporte");
 
@@ -262,7 +253,14 @@ app.get("/admin/exportar-excel-mensual", (req, res) => {
         { header: "Fecha", key: "fecha_hora" }
       ];
 
-      data.forEach(r => ws.addRow(r));
+      data.forEach(r => {
+        ws.addRow({
+          ...r,
+          fecha_hora: new Date(r.fecha_hora).toLocaleString("es-CO", {
+            timeZone: "America/Bogota"
+          })
+        });
+      });
 
       res.setHeader("Content-Type", "application/vnd.openxmlformats");
       res.setHeader("Content-Disposition", "attachment");
