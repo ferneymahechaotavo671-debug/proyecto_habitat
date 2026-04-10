@@ -137,7 +137,6 @@ td {
 
 <button onclick="cargar()">Filtrar</button>
 
-<!-- 🔥 NUEVOS BOTONES -->
 <button onclick="exportarExcel()">📥 Excel</button>
 <button onclick="generarReporte()">📊 Reporte</button>
 
@@ -162,7 +161,6 @@ td {
 
 </div>
 
-<!-- FORMULARIO -->
 <div id="formulario">
 
 <h3>Agregar Persona</h3>
@@ -189,14 +187,20 @@ td {
 // CARGAR EDIFICIOS
 // ======================
 async function loadEdificios(){
-  const res = await fetch("/admin/edificios");
-  const data = await res.json();
+  try{
+    const res = await fetch("/admin/edificios");
+    const data = await res.json();
 
-  const sel = document.getElementById("edificio");
+    const sel = document.getElementById("edificio");
+    sel.innerHTML = "<option value=''>Todos</option>";
 
-  data.forEach(e=>{
-    sel.innerHTML += `<option value="${e.id}">${e.nombre}</option>`;
-  });
+    data.forEach(e=>{
+      sel.innerHTML += `<option value="${e.id}">${e.nombre}</option>`;
+    });
+
+  }catch(err){
+    console.error("Error cargando edificios", err);
+  }
 }
 
 // ======================
@@ -204,33 +208,43 @@ async function loadEdificios(){
 // ======================
 async function cargar(){
 
-  let e = document.getElementById("edificio").value;
-  let c = document.getElementById("cedula").value;
+  try{
+    let e = document.getElementById("edificio").value;
+    let c = document.getElementById("cedula").value;
 
-  let url = "/admin/registros?";
+    let url = "/admin/registros?";
 
-  if(e) url += "edificio_id="+e+"&";
-  if(c) url += "cedula="+c;
+    if(e) url += "edificio_id="+e+"&";
+    if(c) url += "cedula="+c;
 
-  const res = await fetch(url);
-  const data = await res.json();
+    const res = await fetch(url);
+    const data = await res.json();
 
-  const t = document.getElementById("tabla");
-  t.innerHTML = "";
+    const t = document.getElementById("tabla");
+    t.innerHTML = "";
 
-  data.forEach(r=>{
-    t.innerHTML += `
-      <tr>
-        <td>${r.id}</td>
-        <td>${r.nombre}</td>
-        <td>${r.cedula}</td>
-        <td>${r.edificio_nombre}</td>
-        <td>${r.rol || "-"}</td>
-        <td>${r.tipo_registro}</td>
-        <td>${r.fecha_hora}</td>
-      </tr>
-    `;
-  });
+    data.forEach(r=>{
+
+      const fecha = new Date(r.fecha_hora).toLocaleString("es-CO", {
+        timeZone: "America/Bogota"
+      });
+
+      t.innerHTML += `
+        <tr>
+          <td>${r.id}</td>
+          <td>${r.nombre}</td>
+          <td>${r.cedula}</td>
+          <td>${r.edificio_nombre || r.edificio}</td>
+          <td>${r.rol || "-"}</td>
+          <td>${r.tipo_registro}</td>
+          <td>${fecha}</td>
+        </tr>
+      `;
+    });
+
+  }catch(err){
+    console.error("Error cargando registros", err);
+  }
 }
 
 // ======================
@@ -245,15 +259,20 @@ function cerrarFormulario(){
 }
 
 async function cargarEdificiosForm(){
-  const res = await fetch("/admin/edificios");
-  const data = await res.json();
+  try{
+    const res = await fetch("/admin/edificios");
+    const data = await res.json();
 
-  const sel = document.getElementById("edificioNuevo");
-  sel.innerHTML = "";
+    const sel = document.getElementById("edificioNuevo");
+    sel.innerHTML = "";
 
-  data.forEach(e=>{
-    sel.innerHTML += `<option value="${e.id}">${e.nombre}</option>`;
-  });
+    data.forEach(e=>{
+      sel.innerHTML += `<option value="${e.id}">${e.nombre}</option>`;
+    });
+
+  }catch(err){
+    console.error(err);
+  }
 }
 
 // ======================
@@ -292,19 +311,12 @@ async function guardarPersona(){
 }
 
 // ======================
-// 🔥 EXPORTAR EXCEL
+// 📥 EXPORTAR EXCEL
 // ======================
 function exportarExcel(){
 
-  let e = document.getElementById("edificio").value;
-  let c = document.getElementById("cedula").value;
-
-  let url = "/admin/export-excel?";
-
-  if(e) url += "edificio_id="+e+"&";
-  if(c) url += "cedula="+c;
-
-  window.open(url, "_blank");
+  let mes = new Date().getMonth() + 1;
+  window.open("/admin/exportar-excel-mensual?mes=" + mes, "_blank");
 }
 
 // ======================
@@ -312,15 +324,8 @@ function exportarExcel(){
 // ======================
 function generarReporte(){
 
-  let e = document.getElementById("edificio").value;
-  let c = document.getElementById("cedula").value;
-
-  let url = "/admin/reporte?";
-
-  if(e) url += "edificio_id="+e+"&";
-  if(c) url += "cedula="+c;
-
-  window.open(url, "_blank");
+  let mes = new Date().getMonth() + 1;
+  window.open("/admin/exportar-excel-mensual?mes=" + mes, "_blank");
 }
 
 // INIT

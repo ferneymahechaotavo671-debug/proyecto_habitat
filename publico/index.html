@@ -198,23 +198,36 @@ document.getElementById("form").onsubmit = async (e) => {
   msg.className = "";
   msg.classList.remove("show");
 
-  const res = await fetch("/registro", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      cedula,
-      codigoEdificio: codigo
-    })
-  });
+  try {
 
-  const data = await res.json();
+    const res = await fetch("/registro", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        cedula,
+        codigoEdificio: codigo
+      })
+    });
 
-  msg.innerText = data.mensaje;
+    if (!res.ok) {
+      throw new Error("Error servidor");
+    }
 
-  if (data.mensaje.includes("registrada")) {
-    msg.classList.add("success");
-  } else {
+    const data = await res.json();
+
+    msg.innerText = data.mensaje || "Sin respuesta del servidor";
+
+    if (data.mensaje && data.mensaje.includes("registrada")) {
+      msg.classList.add("success");
+    } else {
+      msg.classList.add("error");
+    }
+
+  } catch (error) {
+
+    msg.innerText = "Error de conexión ❌";
     msg.classList.add("error");
+
   }
 
   msg.classList.add("show");

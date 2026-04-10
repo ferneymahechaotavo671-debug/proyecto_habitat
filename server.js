@@ -47,8 +47,10 @@ app.post("/registro", (req, res) => {
     .replace(/\./g, "");
 
   if (!cedula || !codigoEdificio) {
-    return res.status(400).json({ mensaje: "Datos incompletos" });
+    return res.status(400).json({ mensaje: "Datos incompletos ❌" });
   }
+
+  console.log("QR recibido:", codigoEdificio);
 
   db.query(
     `SELECT * FROM edificios
@@ -56,8 +58,14 @@ app.post("/registro", (req, res) => {
     [codigoEdificio],
     (err, eds) => {
 
-      if (err) return res.status(500).json({ mensaje: "Error servidor" });
-      if (eds.length === 0) return res.json({ mensaje: "QR inválido ❌" });
+      if (err) {
+        console.error("Error edificios:", err);
+        return res.status(500).json({ mensaje: "Error servidor ❌" });
+      }
+
+      if (eds.length === 0) {
+        return res.json({ mensaje: "QR inválido ❌" });
+      }
 
       const edificio = eds[0];
 
@@ -70,8 +78,14 @@ app.post("/registro", (req, res) => {
         [cedula, edificio.id],
         (err, users) => {
 
-          if (err) return res.status(500).json({ mensaje: "Error servidor" });
-          if (users.length === 0) return res.json({ mensaje: "No autorizado 🚫" });
+          if (err) {
+            console.error("Error usuarios:", err);
+            return res.status(500).json({ mensaje: "Error servidor ❌" });
+          }
+
+          if (users.length === 0) {
+            return res.json({ mensaje: "No autorizado 🚫" });
+          }
 
           const user = users[0];
 
@@ -82,6 +96,11 @@ app.post("/registro", (req, res) => {
             [cedula, edificio.id],
             (err, last) => {
 
+              if (err) {
+                console.error("Error registros:", err);
+                return res.status(500).json({ mensaje: "Error servidor ❌" });
+              }
+
               let tipo = "Entrada";
 
               if (last.length > 0 && last[0].tipo_registro === "Entrada") {
@@ -89,20 +108,23 @@ app.post("/registro", (req, res) => {
               }
 
               db.query(
-  `INSERT INTO registros
-  (nombre, cedula, edificio, tipo_registro, fecha_hora, edificio_id) 
-  VALUES (?, ?, ?, ?, ?, ?)`,
-  [
-  usuario.nombre,
-  cedula,
-  edificio.nombre,
-  tipo,
-  fechaColombia(),
-  edificio.id
-],
+                `INSERT INTO registros
+                (nombre, cedula, edificio, tipo_registro, fecha_hora, edificio_id) 
+                VALUES (?, ?, ?, ?, ?, ?)`,
+                [
+                  user.nombre, // 🔥 CORREGIDO
+                  cedula,
+                  edificio.nombre,
+                  tipo,
+                  fechaColombia(),
+                  edificio.id
+                ],
                 (err) => {
 
-                  if (err) return res.status(500).json({ mensaje: "Error registro" });
+                  if (err) {
+                    console.error("ERROR INSERT:", err);
+                    return res.status(500).json({ mensaje: "Error registro ❌" });
+                  }
 
                   res.json({
                     mensaje: `${tipo} registrada ✅`,
@@ -148,7 +170,10 @@ app.get("/admin/registros", (req, res) => {
   sql += " ORDER BY r.fecha_hora DESC";
 
   db.query(sql, params, (err, data) => {
-    if (err) return res.status(500).json(err);
+    if (err) {
+      console.error(err);
+      return res.status(500).json(err);
+    }
     res.json(data);
   });
 });
@@ -158,7 +183,10 @@ app.get("/admin/registros", (req, res) => {
 ========================= */
 app.get("/admin/edificios", (req, res) => {
   db.query("SELECT * FROM edificios", (err, data) => {
-    if (err) return res.status(500).json(err);
+    if (err) {
+      console.error(err);
+      return res.status(500).json(err);
+    }
     res.json(data);
   });
 });
@@ -215,6 +243,11 @@ app.get("/admin/exportar-excel-mensual", (req, res) => {
     "SELECT * FROM registros WHERE MONTH(fecha_hora)=?",
     [mes],
     async (err, data) => {
+
+      if (err) {
+        console.error(err);
+        return res.status(500).send("Error");
+      }
 
       const wb = new ExcelJS.Workbook();
       const ws = wb.addWorksheet("Reporte");
