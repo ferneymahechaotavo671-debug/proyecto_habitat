@@ -4,7 +4,7 @@ const path = require("path");
 const ExcelJS = require("exceljs");
 const cron = require("node-cron");
 
-// 🔥 FECHA COLOMBIA CORRECTA (FIX REAL)
+// 🔥 FECHA COLOMBIA
 function fechaColombia() {
   const fecha = new Date();
 
@@ -168,7 +168,6 @@ app.get("/admin/registros", (req, res) => {
     params.push(cedula);
   }
 
-  // 🔥 ORDEN CRONOLÓGICO REAL
   sql += " ORDER BY r.fecha_hora ASC, id ASC";
 
   db.query(sql, params, (err, data) => {
@@ -198,7 +197,6 @@ app.post("/admin/agregar-edificio", (req, res) => {
     return res.status(400).json({ mensaje: "Nombre requerido" });
   }
 
-  // 🔥 generar codigo automático limpio
   const codigo_qr = nombre
     .toLowerCase()
     .replace(/[^a-z0-9]/g, "");
@@ -206,14 +204,38 @@ app.post("/admin/agregar-edificio", (req, res) => {
   db.query(
     "INSERT INTO edificios (nombre, codigo_qr) VALUES (?, ?)",
     [nombre, codigo_qr],
-    (err) => {
+    (err, result) => {
 
       if (err) {
         console.error(err);
         return res.status(500).json({ mensaje: "Error al guardar edificio ❌" });
       }
 
-      res.json({ mensaje: "Edificio agregado correctamente ✅" });
+      const edificioId = result.insertId;
+
+      // 🔥 ASIGNAR ESTE NUEVO EDIFICIO A TODOS LOS USUARIOS
+      db.query("SELECT id FROM usuarios", (err, users) => {
+
+        if (err) return res.status(500).json({ mensaje: "Error usuarios" });
+
+        if (users.length === 0) {
+          return res.json({ mensaje: "Edificio agregado (sin usuarios aún) ⚠️" });
+        }
+
+        const values = users.map(u => [u.id, edificioId]);
+
+        db.query(
+          "INSERT INTO usuario_edificio (usuario_id, edificio_id) VALUES ?",
+          [values],
+          (err) => {
+
+            if (err) return res.status(500).json({ mensaje: "Error asignación automática" });
+
+            res.json({ mensaje: "Edificio agregado y asignado a todos los usuarios ✅" });
+          }
+        );
+      });
+
     }
   );
 });
@@ -238,7 +260,28 @@ app.post("/admin/crear-usuario", (req, res) => {
 
       const usuarioId = result.insertId;
 
-      if (edificios && edificios.length > 0) {
+      // 🔥 SI NO SELECCIONA EDIFICIO → TODOS
+      if (!edificios || edificios.length === 0) {
+
+        db.query("SELECT id FROM edificios", (err, eds) => {
+
+          if (err) return res.status(500).json({ mensaje: "Error edificios" });
+
+          const values = eds.map(e => [usuarioId, e.id]);
+
+          db.query(
+            "INSERT INTO usuario_edificio (usuario_id, edificio_id) VALUES ?",
+            [values],
+            (err) => {
+
+              if (err) return res.status(500).json({ mensaje: "Error asignación automática" });
+
+              res.json({ mensaje: "Usuario creado con acceso a todos los edificios ✅" });
+            }
+          );
+        });
+
+      } else {
 
         const values = edificios.map(e => [usuarioId, e]);
 
@@ -246,14 +289,12 @@ app.post("/admin/crear-usuario", (req, res) => {
           "INSERT INTO usuario_edificio (usuario_id, edificio_id) VALUES ?",
           [values],
           (err) => {
+
             if (err) return res.status(500).json({ mensaje: "Error edificios" });
 
             res.json({ mensaje: "Usuario creado correctamente ✅" });
           }
         );
-
-      } else {
-        res.json({ mensaje: "Usuario creado sin edificios ⚠️" });
       }
     }
   );
@@ -303,7 +344,7 @@ app.get("/admin/exportar-excel-mensual", (req, res) => {
 });
 
 /* =========================
-   ⏰ CIERRE AUTOMÁTICO
+   ⏰ CRON
 ========================= */
 cron.schedule("59 23 * * *", () => {
   console.log("⏰ cierre automático ejecutado");
