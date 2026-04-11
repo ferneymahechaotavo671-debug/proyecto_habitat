@@ -245,10 +245,15 @@ app.post("/admin/agregar-edificio", (req, res) => {
 ========================= */
 app.post("/admin/crear-usuario", (req, res) => {
 
-  const { nombre, cedula, rol_id, edificios } = req.body;
+  let { nombre, cedula, rol_id, edificios } = req.body;
 
   if (!nombre || !cedula || !rol_id) {
     return res.status(400).json({ mensaje: "Datos incompletos" });
+  }
+
+  // 🔥 asegurar array válido
+  if (!Array.isArray(edificios)) {
+    edificios = edificios ? [edificios] : [];
   }
 
   db.query(
@@ -256,16 +261,22 @@ app.post("/admin/crear-usuario", (req, res) => {
     [nombre, cedula, rol_id],
     (err, result) => {
 
-      if (err) return res.status(500).json({ mensaje: "Error usuario" });
+      if (err) {
+        console.error("ERROR USUARIO:", err);
+        return res.status(500).json({ mensaje: "Error creando usuario ❌" });
+      }
 
       const usuarioId = result.insertId;
 
-      // 🔥 SI NO SELECCIONA EDIFICIO → TODOS
-      if (!edificios || edificios.length === 0) {
-
+      // 🔥 SI NO ELIGE EDIFICIOS → TODOS
+      const asignarTodos = (callback) => {
         db.query("SELECT id FROM edificios", (err, eds) => {
 
           if (err) return res.status(500).json({ mensaje: "Error edificios" });
+
+          if (eds.length === 0) {
+            return res.json({ mensaje: "Usuario creado sin edificios ⚠️" });
+          }
 
           const values = eds.map(e => [usuarioId, e.id]);
 
@@ -273,24 +284,38 @@ app.post("/admin/crear-usuario", (req, res) => {
             "INSERT INTO usuario_edificio (usuario_id, edificio_id) VALUES ?",
             [values],
             (err) => {
+              if (err) {
+                console.error("ERROR ASIGNANDO TODOS:", err);
+                return res.status(500).json({ mensaje: "Error asignando edificios ❌" });
+              }
 
-              if (err) return res.status(500).json({ mensaje: "Error asignación automática" });
-
-              res.json({ mensaje: "Usuario creado con acceso a todos los edificios ✅" });
+              callback();
             }
           );
+        });
+      };
+
+      // 🔥 CASO 1: SIN EDIFICIOS
+      if (edificios.length === 0) {
+
+        asignarTodos(() => {
+          res.json({ mensaje: "Usuario creado con acceso a TODOS los edificios ✅" });
         });
 
       } else {
 
-        const values = edificios.map(e => [usuarioId, e]);
+        // 🔥 CASO 2: CON EDIFICIOS
+        const values = edificios.map(id => [usuarioId, id]);
 
         db.query(
           "INSERT INTO usuario_edificio (usuario_id, edificio_id) VALUES ?",
           [values],
           (err) => {
 
-            if (err) return res.status(500).json({ mensaje: "Error edificios" });
+            if (err) {
+              console.error("ERROR ASIGNANDO:", err);
+              return res.status(500).json({ mensaje: "Error asignando edificios ❌" });
+            }
 
             res.json({ mensaje: "Usuario creado correctamente ✅" });
           }
