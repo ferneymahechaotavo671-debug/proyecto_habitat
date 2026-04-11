@@ -163,33 +163,27 @@ codigo = codigo
   .replace(/\./g, "")
   .replace(/[^a-z0-9]/g, "");
 
-// 🔥 NOMBRES (AQUÍ SOLO AGREGAMOS EL TUYO)
-const nombres = {
-  arcolsa1: "ED. ARCOLSA 1",
-  elpunto: "ED. EL PUNTO",
-  calle91: "CALLE 91 PH",
-  cerrosales: "ED. CERROSALES",
-  balconesemaus: "ED. BALCONES DE EMAUS",
-  torreverne: "ED. TORRE VERNE",
-  sanjake: "ED. SANJAKE",
-  plaza94: "ED. PLAZA 94",
-  parque86: "ED. PARQUE 86",
-  santorini: "ED. SANTORINI",
-  in91: "ED. 91 IN",
-  iflat63: "ED. IFLAT 63",
-  kubik54: "ED. KUBIK 54",
-  lagospontevedra: "ED. LAGOS DE PONTEVEDRA",
-  vita106: "ED. VITA 106",
-  conquistador: "ED. CONQUISTADOR",
-  urapanes: "ED. URAPANES",
-  callejonparque: "ED. CALLEJON DEL PARQUE",
-  toscana: "ED. TOSCANA",
-  altosherradura: "ED. ALTOS DE LA HERRADURA"
-};
+// 🔥 OBTENER NOMBRE REAL DESDE EL SERVER
+async function cargarNombreEdificio() {
+  try {
 
-// MOSTRAR NOMBRE
-document.getElementById("edificio").innerText =
-  nombres[codigo] || "Edificio no válido";
+    const res = await fetch("/admin/edificios");
+    const edificios = await res.json();
+
+    const edificio = edificios.find(e =>
+      e.codigo_qr === codigo
+    );
+
+    document.getElementById("edificio").innerText =
+      edificio ? edificio.nombre : "Edificio no válido";
+
+  } catch (error) {
+    document.getElementById("edificio").innerText = "Error cargando edificio";
+  }
+}
+
+// ejecutar
+cargarNombreEdificio();
 
 // ==============================
 // ⏱️ TIEMPO
