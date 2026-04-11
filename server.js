@@ -251,76 +251,95 @@ app.post("/admin/crear-usuario", (req, res) => {
     return res.status(400).json({ mensaje: "Datos incompletos" });
   }
 
-  // 🔥 asegurar array válido
   if (!Array.isArray(edificios)) {
     edificios = edificios ? [edificios] : [];
   }
 
+  // 🔍 1. VER SI EL USUARIO YA EXISTE
   db.query(
-    "INSERT INTO usuarios (nombre, cedula, rol_id) VALUES (?, ?, ?)",
-    [nombre, cedula, rol_id],
-    (err, result) => {
+    "SELECT id FROM usuarios WHERE cedula = ?",
+    [cedula],
+    (err, rows) => {
 
       if (err) {
-        console.error("ERROR USUARIO:", err);
-        return res.status(500).json({ mensaje: "Error creando usuario ❌" });
+        console.error(err);
+        return res.status(500).json({ mensaje: "Error consultando usuario ❌" });
       }
 
-      const usuarioId = result.insertId;
+      let usuarioId;
 
-      // 🔥 SI NO ELIGE EDIFICIOS → TODOS
-      const asignarTodos = (callback) => {
-        db.query("SELECT id FROM edificios", (err, eds) => {
+      const continuarAsignacion = () => {
 
-          if (err) return res.status(500).json({ mensaje: "Error edificios" });
+        // 🔥 si no selecciona edificios → todos
+        if (edificios.length === 0) {
 
-          if (eds.length === 0) {
-            return res.json({ mensaje: "Usuario creado sin edificios ⚠️" });
-          }
+          db.query("SELECT id FROM edificios", (err, eds) => {
 
-          const values = eds.map(e => [usuarioId, e.id]);
+            if (err) {
+              console.error(err);
+              return res.status(500).json({ mensaje: "Error edificios ❌" });
+            }
+
+            const values = eds.map(e => [usuarioId, e.id]);
+
+            db.query(
+              "INSERT INTO usuario_edificio (usuario_id, edificio_id) VALUES ?",
+              [values],
+              (err) => {
+                if (err) {
+                  console.error(err);
+                  return res.status(500).json({ mensaje: "Error asignando edificios ❌" });
+                }
+
+                return res.json({ mensaje: "Usuario listo con TODOS los edificios ✅" });
+              }
+            );
+          });
+
+        } else {
+
+          const values = edificios.map(id => [usuarioId, id]);
 
           db.query(
             "INSERT INTO usuario_edificio (usuario_id, edificio_id) VALUES ?",
             [values],
             (err) => {
+
               if (err) {
-                console.error("ERROR ASIGNANDO TODOS:", err);
+                console.error(err);
                 return res.status(500).json({ mensaje: "Error asignando edificios ❌" });
               }
 
-              callback();
+              return res.json({ mensaje: "Usuario asignado correctamente ✅" });
             }
           );
-        });
+        }
       };
 
-      // 🔥 CASO 1: SIN EDIFICIOS
-      if (edificios.length === 0) {
+      // 👇 SI YA EXISTE
+      if (rows.length > 0) {
 
-        asignarTodos(() => {
-          res.json({ mensaje: "Usuario creado con acceso a TODOS los edificios ✅" });
-        });
+        usuarioId = rows[0].id;
 
-      } else {
-
-        // 🔥 CASO 2: CON EDIFICIOS
-        const values = edificios.map(id => [usuarioId, id]);
-
-        db.query(
-          "INSERT INTO usuario_edificio (usuario_id, edificio_id) VALUES ?",
-          [values],
-          (err) => {
-
-            if (err) {
-              console.error("ERROR ASIGNANDO:", err);
-              return res.status(500).json({ mensaje: "Error asignando edificios ❌" });
-            }
-
-            res.json({ mensaje: "Usuario creado correctamente ✅" });
-          }
-        );
+        return continuarAsignacion();
       }
+
+      // 👇 SI NO EXISTE → CREAR
+      db.query(
+        "INSERT INTO usuarios (nombre, cedula, rol_id) VALUES (?, ?, ?)",
+        [nombre, cedula, rol_id],
+        (err, result) => {
+
+          if (err) {
+            console.error(err);
+            return res.status(500).json({ mensaje: "Error creando usuario ❌" });
+          }
+
+          usuarioId = result.insertId;
+
+          continuarAsignacion();
+        }
+      );
     }
   );
 });
