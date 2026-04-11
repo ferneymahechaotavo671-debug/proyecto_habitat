@@ -6,40 +6,110 @@
 <title>Registro QR</title>
 
 <style>
+
+/* RESET */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+/* FONDO */
 body {
-  background: linear-gradient(135deg, #0f3d2e, #1f7a63, #38b48b);
-  font-family: Arial;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100vh;
+    background: linear-gradient(135deg, #0f3d2e, #1f7a63, #38b48b);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
+/* CONTENEDOR */
 .container {
-  background: white;
-  padding: 25px;
-  border-radius: 15px;
-  width: 90%;
-  max-width: 400px;
-  text-align: center;
+    background: rgba(255, 255, 255, 0.95);
+    padding: 30px;
+    border-radius: 20px;
+    width: 90%;
+    max-width: 420px;
+    box-shadow: 0px 10px 30px rgba(0,0,0,0.3);
+    text-align: center;
 }
 
-input, button {
-  width: 100%;
-  padding: 10px;
-  margin-top: 10px;
+/* TITULO */
+h1 {
+    color: #0f3d2e;
+    margin-bottom: 20px;
 }
 
+/* FORM */
+form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+/* INPUTS */
+input {
+    width: 100%;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid #ccc;
+    outline: none;
+    transition: 0.3s;
+}
+
+/* EFECTO */
+input:focus {
+    border-color: #1f7a63;
+    box-shadow: 0 0 8px rgba(31,122,99,0.5);
+}
+
+/* BOTÓN */
 button {
-  background: #1f7a63;
-  color: white;
-  border: none;
-  cursor: pointer;
+    padding: 12px;
+    border: none;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #1f7a63, #38b48b);
+    color: white;
+    font-size: 16px;
+    cursor: pointer;
+    transition: 0.3s;
 }
 
-#msg {
-  margin-top: 10px;
+/* HOVER */
+button:hover {
+    transform: scale(1.05);
+    background: linear-gradient(135deg, #38b48b, #1f7a63);
 }
+
+/* MENSAJE */
+#mensaje {
+    margin-top: 15px;
+    font-weight: bold;
+    opacity: 0;
+    transition: opacity 0.5s;
+}
+
+#mensaje.show {
+    opacity: 1;
+}
+
+.success {
+    color: #1f7a63;
+}
+
+.error {
+    color: red;
+}
+
+/* RESPONSIVE */
+@media (max-width: 480px) {
+    .container {
+        width: 95%;
+        padding: 20px;
+    }
+}
+
 </style>
 </head>
 
@@ -47,14 +117,15 @@ button {
 
 <div class="container">
 
-  <h2 id="edificio">Validando...</h2>
+  <h1 id="edificio">Validando...</h1>
 
   <form id="form">
     <input type="text" id="cedula" placeholder="Cédula" required>
     <button>Registrar</button>
   </form>
 
-  <p id="msg"></p>
+  <p id="mensaje"></p>
+
 </div>
 
 <script>
@@ -103,11 +174,12 @@ const nombres = {
 document.getElementById("edificio").innerText =
   nombres[codigo] || "Edificio no válido";
 
+// REGISTRO
 document.getElementById("form").onsubmit = async (e) => {
   e.preventDefault();
 
   const cedula = document.getElementById("cedula").value.trim();
-  const msg = document.getElementById("msg");
+  const mensaje = document.getElementById("mensaje");
 
   const res = await fetch("/registro", {
     method: "POST",
@@ -120,7 +192,17 @@ document.getElementById("form").onsubmit = async (e) => {
 
   const data = await res.json();
 
-  msg.innerText = data.mensaje;
+  mensaje.innerText = data.mensaje;
+  mensaje.classList.add("show");
+
+  // estilos según respuesta
+  if(data.mensaje.includes("✅")){
+    mensaje.classList.remove("error");
+    mensaje.classList.add("success");
+  } else {
+    mensaje.classList.remove("success");
+    mensaje.classList.add("error");
+  }
 };
 
 </script>
