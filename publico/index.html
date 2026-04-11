@@ -149,17 +149,6 @@ codigo = codigo
   .replace(/\./g, "");
 
 // ==============================
-// 🔹 MOSTRAR NOMBRE (OPCIONAL)
-// ==============================
-// Esto es solo visual, NO afecta backend
-const nombres = {
-  altosherradura: "ED. ALTOS DE LA HERRADURA"
-};
-
-document.getElementById("edificio").innerText =
-  nombres[codigo] || "Escanea correctamente el QR";
-
-// ==============================
 // ⏱️ TIEMPO
 // ==============================
 const TIEMPO_LIMITE = 20 * 60 * 1000;
@@ -220,6 +209,11 @@ document.getElementById("form").onsubmit = async (e) => {
     const data = await res.json();
 
     msg.innerText = data.mensaje;
+
+    // 🔥 MOSTRAR NOMBRE DEL EDIFICIO
+    if (data.edificio) {
+      document.getElementById("edificio").innerText = data.edificio;
+    }
 
     if (data.mensaje.includes("registrada")) {
       msg.classList.add("success");
