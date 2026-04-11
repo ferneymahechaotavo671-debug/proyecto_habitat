@@ -155,6 +155,7 @@ td {
 <th>Rol</th>
 <th>Tipo</th>
 <th>Fecha</th>
+<th>Observación</th>
 </tr>
 </thead>
 <tbody id="tabla"></tbody>
@@ -252,6 +253,9 @@ async function cargar(){
           <td>${r.rol || "-"}</td>
           <td>${r.tipo_registro}</td>
           <td>${fecha}</td>
+          <td style="color:red;">
+  ${r.observacion || "-"}
+</td>
         </tr>
       `;
     });

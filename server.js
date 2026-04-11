@@ -386,7 +386,58 @@ app.get("/admin/exportar-excel-mensual", (req, res) => {
    ⏰ CRON
 ========================= */
 cron.schedule("59 23 * * *", () => {
-  console.log("⏰ cierre automático ejecutado");
+
+  console.log("⏰ Ejecutando cierre automático...");
+
+  db.query(`
+    SELECT r.*
+    FROM registros r
+    INNER JOIN (
+      SELECT cedula, edificio_id, MAX(id) as ultimo
+      FROM registros
+      GROUP BY cedula, edificio_id
+    ) t ON r.id = t.ultimo
+    WHERE r.tipo_registro = 'Entrada'
+  `, (err, pendientes) => {
+
+    if (err) {
+      console.error("ERROR BUSCANDO PENDIENTES:", err);
+      return;
+    }
+
+    if (pendientes.length === 0) {
+      console.log("✅ No hay pendientes");
+      return;
+    }
+
+    pendientes.forEach(p => {
+
+      db.query(`
+        INSERT INTO registros
+        (nombre, cedula, edificio, tipo_registro, edificio_id, rol, observacion)
+        VALUES (?, ?, ?, 'Salida', ?, ?, 'Salida no registrada')
+      `,
+      [
+        p.nombre,
+        p.cedula,
+        p.edificio,
+        p.edificio_id,
+        p.rol
+      ],
+      (err) => {
+
+        if (err) {
+          console.error("ERROR INSERTANDO SALIDA AUTO:", err);
+        } else {
+          console.log(`✅ Salida automática para ${p.nombre}`);
+        }
+
+      });
+
+    });
+
+  });
+
 });
 
 /* =========================
