@@ -141,6 +141,7 @@ td {
 <button onclick="generarReporte()">📊 Reporte</button>
 
 <button onclick="mostrarFormulario()">➕ Agregar Persona</button>
+<button onclick="mostrarFormEdificio()">🏢 Agregar Edificio</button>
 
 </div>
 
@@ -172,12 +173,25 @@ td {
   <option value="1">Administración</option>
   <option value="2">Vigilancia</option>
   <option value="3">Servicios Generales</option>
+  <option value="4">Todero</option>
 </select>
 
 <select id="edificioNuevo" multiple style="height:120px;"></select>
 
 <button onclick="guardarPersona()">Guardar</button>
 <button onclick="cerrarFormulario()" style="margin-top:5px; background:red;">Cerrar</button>
+
+</div>
+
+<div id="formEdificio" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+background:white; padding:20px; border-radius:15px; width:300px; box-shadow:0px 10px 30px rgba(0,0,0,0.4); z-index:999;">
+
+<h3>Agregar Edificio</h3>
+
+<input id="nombreEdificio" placeholder="Nombre del edificio">
+
+<button onclick="guardarEdificio()">Guardar</button>
+<button onclick="cerrarFormEdificio()" style="margin-top:5px; background:red;">Cerrar</button>
 
 </div>
 
@@ -326,6 +340,40 @@ function generarReporte(){
 
   let mes = new Date().getMonth() + 1;
   window.open("/admin/exportar-excel-mensual?mes=" + mes, "_blank");
+}
+
+// ======================
+// FORM EDIFICIO
+// ======================
+function mostrarFormEdificio(){
+  document.getElementById("formEdificio").style.display = "block";
+}
+
+function cerrarFormEdificio(){
+  document.getElementById("formEdificio").style.display = "none";
+}
+
+async function guardarEdificio(){
+
+  const nombre = document.getElementById("nombreEdificio").value.trim();
+
+  if(!nombre){
+    alert("Ingresa nombre");
+    return;
+  }
+
+  const res = await fetch("/admin/agregar-edificio", {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({ nombre })
+  });
+
+  const data = await res.json();
+  alert(data.mensaje);
+
+  cerrarFormEdificio();
+  loadEdificios();
+  cargarEdificiosForm();
 }
 
 // INIT

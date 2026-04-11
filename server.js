@@ -188,6 +188,37 @@ app.get("/admin/edificios", (req, res) => {
 });
 
 /* =========================
+   🏢 AGREGAR EDIFICIO
+========================= */
+app.post("/admin/agregar-edificio", (req, res) => {
+
+  const { nombre } = req.body;
+
+  if (!nombre) {
+    return res.status(400).json({ mensaje: "Nombre requerido" });
+  }
+
+  // 🔥 generar codigo automático limpio
+  const codigo_qr = nombre
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+
+  db.query(
+    "INSERT INTO edificios (nombre, codigo_qr) VALUES (?, ?)",
+    [nombre, codigo_qr],
+    (err) => {
+
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ mensaje: "Error al guardar edificio ❌" });
+      }
+
+      res.json({ mensaje: "Edificio agregado correctamente ✅" });
+    }
+  );
+});
+
+/* =========================
    👤 CREAR USUARIO
 ========================= */
 app.post("/admin/crear-usuario", (req, res) => {
