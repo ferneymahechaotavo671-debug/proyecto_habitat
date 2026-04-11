@@ -149,6 +149,34 @@ codigo = codigo
   .replace(/\./g, "");
 
 // ==============================
+// 🔥 MOSTRAR NOMBRE AUTOMÁTICO
+// ==============================
+(async () => {
+  try {
+
+    const res = await fetch("/registro", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        cedula: "0000", // dummy
+        codigoEdificio: codigo
+      })
+    });
+
+    const data = await res.json();
+
+    if (data.edificio) {
+      document.getElementById("edificio").innerText = data.edificio;
+    } else {
+      document.getElementById("edificio").innerText = "QR inválido ❌";
+    }
+
+  } catch (error) {
+    document.getElementById("edificio").innerText = "Error cargando edificio";
+  }
+})();
+
+// ==============================
 // ⏱️ TIEMPO
 // ==============================
 const TIEMPO_LIMITE = 20 * 60 * 1000;
@@ -209,11 +237,6 @@ document.getElementById("form").onsubmit = async (e) => {
     const data = await res.json();
 
     msg.innerText = data.mensaje;
-
-    // 🔥 MOSTRAR NOMBRE DEL EDIFICIO
-    if (data.edificio) {
-      document.getElementById("edificio").innerText = data.edificio;
-    }
 
     if (data.mensaje.includes("registrada")) {
       msg.classList.add("success");
