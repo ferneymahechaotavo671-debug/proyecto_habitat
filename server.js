@@ -62,20 +62,26 @@ app.post("/registro", (req, res) => {
     .trim()
     .toLowerCase()
     .replace(/\s+/g, "")
-    .replace(/\./g, "");
+    .replace(/\./g, "")
+    .replace(/[^a-z0-9]/g, "");
 
   if (!cedula || !codigoEdificio) {
     return res.status(400).json({ mensaje: "Datos incompletos ❌" });
   }
 
   db.query(
-    `SELECT * FROM edificios
-     WHERE WHERE codigo_qr = ?`,
+    `SELECT * FROM edificios WHERE codigo_qr = ?`,
     [codigoEdificio],
     (err, eds) => {
 
-      if (err) return res.status(500).json({ mensaje: "Error servidor ❌" });
-      if (eds.length === 0) return res.json({ mensaje: "QR inválido ❌" });
+      if (err) {
+        console.error("ERROR EDIFICIO:", err);
+        return res.status(500).json({ mensaje: "Error servidor ❌" });
+      }
+
+      if (eds.length === 0) {
+        return res.json({ mensaje: "QR inválido ❌" });
+      }
 
       const edificio = eds[0];
 
@@ -88,8 +94,14 @@ app.post("/registro", (req, res) => {
         [cedula, edificio.id],
         (err, users) => {
 
-          if (err) return res.status(500).json({ mensaje: "Error servidor ❌" });
-          if (users.length === 0) return res.json({ mensaje: "No autorizado 🚫" });
+          if (err) {
+            console.error("ERROR USUARIO:", err);
+            return res.status(500).json({ mensaje: "Error servidor ❌" });
+          }
+
+          if (users.length === 0) {
+            return res.json({ mensaje: "No autorizado 🚫" });
+          }
 
           const user = users[0];
 
@@ -100,7 +112,10 @@ app.post("/registro", (req, res) => {
             [cedula, edificio.id],
             (err, last) => {
 
-              if (err) return res.status(500).json({ mensaje: "Error servidor ❌" });
+              if (err) {
+                console.error("ERROR HISTORIAL:", err);
+                return res.status(500).json({ mensaje: "Error servidor ❌" });
+              }
 
               let tipo = "Entrada";
 
@@ -113,7 +128,7 @@ app.post("/registro", (req, res) => {
                 (nombre, cedula, edificio, tipo_registro, edificio_id, rol) 
                 VALUES (?, ?, ?, ?, ?, ?)`,
                 [
-                  user.nombre, 
+                  user.nombre,
                   cedula,
                   edificio.nombre,
                   tipo,
