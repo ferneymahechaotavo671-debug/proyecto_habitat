@@ -229,6 +229,10 @@ document.getElementById("form").onsubmit = async (e) => {
   if (!verificarTiempo()) return;
 
   const cedula = document.getElementById("cedula").value.trim();
+
+  console.log("CEDULA:", cedula);
+  console.log("CODIGO:", codigo);
+
   const msg = document.getElementById("mensaje");
 
   msg.className = "";
