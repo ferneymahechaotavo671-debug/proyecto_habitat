@@ -3,335 +3,125 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Admin</title>
+<title>Registro QR</title>
 
 <style>
-
-/* RESET */
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-  font-family: Arial, Helvetica, sans-serif;
-}
-
-/* FONDO */
 body {
   background: linear-gradient(135deg, #0f3d2e, #1f7a63, #38b48b);
-  min-height: 100vh;
-  padding: 20px;
-}
-
-/* CONTENEDOR */
-.container {
-  background: rgba(255,255,255,0.95);
-  padding: 20px;
-  border-radius: 20px;
-  max-width: 1100px;
-  margin: auto;
-  box-shadow: 0px 10px 30px rgba(0,0,0,0.3);
-}
-
-/* TITULO */
-h1 {
-  text-align: center;
-  color: #0f3d2e;
-  margin-bottom: 20px;
-}
-
-/* FILTROS */
-.filters {
+  font-family: Arial;
   display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-bottom: 15px;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
 }
 
-select, input {
-  padding: 10px;
-  border-radius: 10px;
-  border: 1px solid #ccc;
-  flex: 1;
-}
-
-/* BOTONES */
-button {
-  padding: 10px 15px;
-  border: none;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #1f7a63, #38b48b);
-  color: white;
-  cursor: pointer;
-  transition: 0.3s;
-}
-
-button:hover {
-  transform: scale(1.05);
-}
-
-/* TABLA */
-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 10px;
+.container {
   background: white;
-  border-radius: 10px;
-  overflow: hidden;
+  padding: 25px;
+  border-radius: 15px;
+  width: 90%;
+  max-width: 400px;
+  text-align: center;
 }
 
-th {
+input, button {
+  width: 100%;
+  padding: 10px;
+  margin-top: 10px;
+}
+
+button {
   background: #1f7a63;
   color: white;
-  padding: 10px;
+  border: none;
+  cursor: pointer;
 }
 
-td {
-  padding: 10px;
-  border-bottom: 1px solid #eee;
-  text-align: center;
+#msg {
+  margin-top: 10px;
 }
-
-/* FORMULARIO */
-#formulario {
-  display: none;
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background: white;
-  padding: 20px;
-  border-radius: 15px;
-  width: 320px;
-  box-shadow: 0px 10px 30px rgba(0,0,0,0.4);
-  z-index: 999;
-}
-
-#formulario input,
-#formulario select {
-  width: 100%;
-  margin: 5px 0;
-  padding: 10px;
-  border-radius: 10px;
-  border: 1px solid #ccc;
-}
-
-#formulario h3 {
-  color: #0f3d2e;
-  margin-bottom: 10px;
-}
-
 </style>
-
 </head>
 
 <body>
 
 <div class="container">
 
-<h1>Panel Admin</h1>
+  <h2 id="edificio">Validando...</h2>
 
-<div class="filters">
+  <form id="form">
+    <input type="text" id="cedula" placeholder="Cédula" required>
+    <button>Registrar</button>
+  </form>
 
-<select id="edificio"></select>
-<input id="cedula" placeholder="Cédula">
-
-<button onclick="cargar()">Filtrar</button>
-
-<button onclick="exportarExcel()">📥 Excel</button>
-<button onclick="generarReporte()">📊 Reporte</button>
-
-<button onclick="mostrarFormulario()">➕ Agregar Persona</button>
-
-</div>
-
-<table>
-<thead>
-<tr>
-<th>ID</th>
-<th>Nombre</th>
-<th>Cédula</th>
-<th>Edificio</th>
-<th>Rol</th>
-<th>Tipo</th>
-<th>Fecha</th>
-</tr>
-</thead>
-<tbody id="tabla"></tbody>
-</table>
-
-</div>
-
-<div id="formulario">
-
-<h3>Agregar Persona</h3>
-
-<input id="nombre" placeholder="Nombre completo">
-<input id="cedulaNuevo" placeholder="Cédula">
-
-<select id="rol">
-  <option value="1">Administración</option>
-  <option value="2">Vigilancia</option>
-  <option value="3">Servicios Generales</option>
-</select>
-
-<select id="edificioNuevo" multiple style="height:120px;"></select>
-
-<button onclick="guardarPersona()">Guardar</button>
-<button onclick="cerrarFormulario()" style="margin-top:5px; background:red;">Cerrar</button>
-
+  <p id="msg"></p>
 </div>
 
 <script>
 
-// ======================
-// CARGAR EDIFICIOS
-// ======================
-async function loadEdificios(){
-  try{
-    const res = await fetch("/admin/edificios");
-    const data = await res.json();
+// QR desde URL
+const params = new URLSearchParams(location.search);
+let codigo = params.get("edificio");
 
-    const sel = document.getElementById("edificio");
-    sel.innerHTML = "<option value=''>Todos</option>";
-
-    data.forEach(e=>{
-      sel.innerHTML += `<option value="${e.id}">${e.nombre}</option>`;
-    });
-
-  }catch(err){
-    console.error("Error cargando edificios", err);
-  }
+if (!codigo) {
+  document.body.innerHTML = "<h2>Acceso denegado ❌</h2>";
+  throw new Error("Sin QR");
 }
 
-// ======================
-// FILTRAR REGISTROS
-// ======================
-async function cargar(){
+// NORMALIZAR
+codigo = codigo
+  .toString()
+  .trim()
+  .toLowerCase()
+  .replace(/\s+/g, "")
+  .replace(/\./g, "");
 
-  try{
-    let e = document.getElementById("edificio").value;
-    let c = document.getElementById("cedula").value;
+// NOMBRES
+const nombres = {
+  arcolsa1: "ED. ARCOLSA 1",
+  elpunto: "ED. EL PUNTO",
+  calle91: "CALLE 91 PH",
+  cerrosales: "ED. CERROSALES",
+  balconesemaus: "ED. BALCONES DE EMAUS",
+  torreverne: "ED. TORRE VERNE",
+  sanjake: "ED. SANJAKE",
+  plaza94: "ED. PLAZA 94",
+  parque86: "ED. PARQUE 86",
+  santorini: "ED. SANTORINI",
+  in91: "ED. 91 IN",
+  iflat63: "ED. IFLAT 63",
+  kubik54: "ED. KUBIK 54",
+  lagospontevedra: "ED. LAGOS DE PONTEVEDRA",
+  vita106: "ED. VITA 106",
+  conquistador: "ED. CONQUISTADOR",
+  urapanes: "ED. URAPANES",
+  callejonparque: "ED. CALLEJON DEL PARQUE",
+  toscana: "ED. TOSCANA",
+  altosherradura: "ED. ALTOS DE LA HERRADURA"
+};
 
-    let url = "/admin/registros?";
+document.getElementById("edificio").innerText =
+  nombres[codigo] || "Edificio no válido";
 
-    if(e) url += "edificio_id="+e+"&";
-    if(c) url += "cedula="+c;
+document.getElementById("form").onsubmit = async (e) => {
+  e.preventDefault();
 
-    const res = await fetch(url);
-    const data = await res.json();
+  const cedula = document.getElementById("cedula").value.trim();
+  const msg = document.getElementById("msg");
 
-    const t = document.getElementById("tabla");
-    t.innerHTML = "";
-
-    data.forEach(r=>{
-
-      const fecha = new Date(r.fecha_hora).toLocaleString("es-CO", {
-        timeZone: "America/Bogota"
-      });
-
-      t.innerHTML += `
-        <tr>
-          <td>${r.id}</td>
-          <td>${r.nombre}</td>
-          <td>${r.cedula}</td>
-          <td>${r.edificio_nombre || r.edificio}</td>
-          <td>${r.rol || "-"}</td>
-          <td>${r.tipo_registro}</td>
-          <td>${fecha}</td>
-        </tr>
-      `;
-    });
-
-  }catch(err){
-    console.error("Error cargando registros", err);
-  }
-}
-
-// ======================
-// FORMULARIO
-// ======================
-function mostrarFormulario(){
-  document.getElementById("formulario").style.display = "block";
-}
-
-function cerrarFormulario(){
-  document.getElementById("formulario").style.display = "none";
-}
-
-async function cargarEdificiosForm(){
-  try{
-    const res = await fetch("/admin/edificios");
-    const data = await res.json();
-
-    const sel = document.getElementById("edificioNuevo");
-    sel.innerHTML = "";
-
-    data.forEach(e=>{
-      sel.innerHTML += `<option value="${e.id}">${e.nombre}</option>`;
-    });
-
-  }catch(err){
-    console.error(err);
-  }
-}
-
-// ======================
-// GUARDAR USUARIO
-// ======================
-async function guardarPersona(){
-
-  const nombre = document.getElementById("nombre").value.trim();
-  const cedula = document.getElementById("cedulaNuevo").value.trim();
-  const rol_id = document.getElementById("rol").value;
-
-  const edificios = Array.from(
-    document.getElementById("edificioNuevo").selectedOptions
-  ).map(o => o.value);
-
-  if(!nombre || !cedula){
-    alert("Completa los datos");
-    return;
-  }
-
-  const res = await fetch("/admin/crear-usuario", {
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
+  const res = await fetch("/registro", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      nombre,
       cedula,
-      rol_id,
-      edificios
+      codigoEdificio: codigo
     })
   });
 
   const data = await res.json();
-  alert(data.mensaje);
 
-  cerrarFormulario();
-}
-
-// ======================
-// 📥 EXPORTAR EXCEL
-// ======================
-function exportarExcel(){
-
-  let mes = new Date().getMonth() + 1;
-  window.open("/admin/exportar-excel-mensual?mes=" + mes, "_blank");
-}
-
-// ======================
-// 📊 REPORTE
-// ======================
-function generarReporte(){
-
-  let mes = new Date().getMonth() + 1;
-  window.open("/admin/exportar-excel-mensual?mes=" + mes, "_blank");
-}
-
-// INIT
-loadEdificios();
-cargar();
-cargarEdificiosForm();
+  msg.innerText = data.mensaje;
+};
 
 </script>
 
