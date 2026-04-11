@@ -160,7 +160,8 @@ codigo = codigo
   .trim()
   .toLowerCase()
   .replace(/\s+/g, "")
-  .replace(/\./g, "");
+  .replace(/\./g, "")
+  .replace(/[^a-z0-9]/g, "");
 
 // 🔥 NOMBRES (AQUÍ SOLO AGREGAMOS EL TUYO)
 const nombres = {
@@ -183,7 +184,7 @@ const nombres = {
   urapanes: "ED. URAPANES",
   callejonparque: "ED. CALLEJON DEL PARQUE",
   toscana: "ED. TOSCANA",
-  altosherradura: "ED. ALTOS DE LA HERRADURA" // 👈 ESTE ERA EL QUE TE FALTABA
+  altosherradura: "ED. ALTOS DE LA HERRADURA"
 };
 
 // MOSTRAR NOMBRE

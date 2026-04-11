@@ -70,7 +70,7 @@ app.post("/registro", (req, res) => {
 
   db.query(
     `SELECT * FROM edificios
-     WHERE LOWER(REPLACE(REPLACE(codigo_qr,' ',''),'.','')) = ?`,
+     WHERE WHERE codigo_qr = ?`,
     [codigoEdificio],
     (err, eds) => {
 
@@ -197,45 +197,25 @@ app.post("/admin/agregar-edificio", (req, res) => {
     return res.status(400).json({ mensaje: "Nombre requerido" });
   }
 
+  // 🔥 FIX: mismo formato que usa el QR del frontend
   const codigo_qr = nombre
     .toLowerCase()
+    .trim()
+    .replace(/\./g, "")
+    .replace(/\s+/g, "")
     .replace(/[^a-z0-9]/g, "");
 
   db.query(
     "INSERT INTO edificios (nombre, codigo_qr) VALUES (?, ?)",
     [nombre, codigo_qr],
-    (err, result) => {
+    (err) => {
 
       if (err) {
         console.error(err);
         return res.status(500).json({ mensaje: "Error al guardar edificio ❌" });
       }
 
-      const edificioId = result.insertId;
-
-      // 🔥 ASIGNAR ESTE NUEVO EDIFICIO A TODOS LOS USUARIOS
-      db.query("SELECT id FROM usuarios", (err, users) => {
-
-        if (err) return res.status(500).json({ mensaje: "Error usuarios" });
-
-        if (users.length === 0) {
-          return res.json({ mensaje: "Edificio agregado (sin usuarios aún) ⚠️" });
-        }
-
-        const values = users.map(u => [u.id, edificioId]);
-
-        db.query(
-          "INSERT INTO usuario_edificio (usuario_id, edificio_id) VALUES ?",
-          [values],
-          (err) => {
-
-            if (err) return res.status(500).json({ mensaje: "Error asignación automática" });
-
-            res.json({ mensaje: "Edificio agregado y asignado a todos los usuarios ✅" });
-          }
-        );
-      });
-
+      res.json({ mensaje: "Edificio agregado correctamente ✅" });
     }
   );
 });
