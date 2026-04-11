@@ -60,15 +60,17 @@ form {
     gap: 15px;
 }
 
-/* INPUT */
+/* INPUTS */
 input {
     width: 100%;
     padding: 12px;
     border-radius: 10px;
     border: 1px solid #ccc;
     outline: none;
+    transition: 0.3s;
 }
 
+/* EFECTO FOCO */
 input:focus {
     border-color: #1f7a63;
     box-shadow: 0 0 8px rgba(31,122,99,0.5);
@@ -81,11 +83,14 @@ button {
     border-radius: 10px;
     background: linear-gradient(135deg, #1f7a63, #38b48b);
     color: white;
+    font-size: 16px;
     cursor: pointer;
+    transition: 0.3s;
 }
 
 button:hover {
     transform: scale(1.05);
+    background: linear-gradient(135deg, #38b48b, #1f7a63);
 }
 
 /* MENSAJE */
@@ -93,15 +98,28 @@ button:hover {
     margin-top: 15px;
     font-weight: bold;
     opacity: 0;
-    transition: 0.5s;
+    transition: opacity 0.5s;
 }
 
 #mensaje.show {
     opacity: 1;
 }
 
-.success { color: #1f7a63; }
-.error { color: red; }
+.success {
+    color: #1f7a63;
+}
+
+.error {
+    color: red;
+}
+
+/* RESPONSIVE */
+@media (max-width: 480px) {
+    .container {
+        width: 95%;
+        padding: 20px;
+    }
+}
 
 </style>
 </head>
@@ -127,9 +145,7 @@ button:hover {
 
 <script>
 
-// ==============================
-// 🔹 OBTENER QR
-// ==============================
+// QR
 const params = new URLSearchParams(location.search);
 let codigo = params.get("edificio");
 
@@ -138,9 +154,7 @@ if (!codigo) {
   throw new Error("Sin QR");
 }
 
-// ==============================
-// 🔹 NORMALIZAR (IGUAL QUE SERVER)
-// ==============================
+// NORMALIZAR
 codigo = codigo
   .toString()
   .trim()
@@ -148,33 +162,33 @@ codigo = codigo
   .replace(/\s+/g, "")
   .replace(/\./g, "");
 
-// ==============================
-// 🔥 MOSTRAR NOMBRE AUTOMÁTICO
-// ==============================
-(async () => {
-  try {
+// 🔥 NOMBRES (AQUÍ SOLO AGREGAMOS EL TUYO)
+const nombres = {
+  arcolsa1: "ED. ARCOLSA 1",
+  elpunto: "ED. EL PUNTO",
+  calle91: "CALLE 91 PH",
+  cerrosales: "ED. CERROSALES",
+  balconesemaus: "ED. BALCONES DE EMAUS",
+  torreverne: "ED. TORRE VERNE",
+  sanjake: "ED. SANJAKE",
+  plaza94: "ED. PLAZA 94",
+  parque86: "ED. PARQUE 86",
+  santorini: "ED. SANTORINI",
+  in91: "ED. 91 IN",
+  iflat63: "ED. IFLAT 63",
+  kubik54: "ED. KUBIK 54",
+  lagospontevedra: "ED. LAGOS DE PONTEVEDRA",
+  vita106: "ED. VITA 106",
+  conquistador: "ED. CONQUISTADOR",
+  urapanes: "ED. URAPANES",
+  callejonparque: "ED. CALLEJON DEL PARQUE",
+  toscana: "ED. TOSCANA",
+  altosherradura: "ED. ALTOS DE LA HERRADURA" // 👈 ESTE ERA EL QUE TE FALTABA
+};
 
-    const res = await fetch("/registro", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        cedula: "0000", // dummy
-        codigoEdificio: codigo
-      })
-    });
-
-    const data = await res.json();
-
-    if (data.edificio) {
-      document.getElementById("edificio").innerText = data.edificio;
-    } else {
-      document.getElementById("edificio").innerText = "QR inválido ❌";
-    }
-
-  } catch (error) {
-    document.getElementById("edificio").innerText = "Error cargando edificio";
-  }
-})();
+// MOSTRAR NOMBRE
+document.getElementById("edificio").innerText =
+  nombres[codigo] || "Edificio no válido";
 
 // ==============================
 // ⏱️ TIEMPO
@@ -192,14 +206,16 @@ const inicio = parseInt(inicioGuardado);
 
 function verificarTiempo() {
   const ahora = Date.now();
-  if ((ahora - inicio) > TIEMPO_LIMITE) {
+  const pasado = ahora - inicio;
+
+  if (pasado > TIEMPO_LIMITE) {
 
     localStorage.removeItem("inicioQR");
 
     document.body.innerHTML = `
       <div style="text-align:center; margin-top:50px;">
         <h2>⏰ Sesión expirada</h2>
-        <p>Escanea nuevamente el QR</p>
+        <p>Debes escanear nuevamente el QR</p>
       </div>
     `;
     return false;
@@ -207,11 +223,11 @@ function verificarTiempo() {
   return true;
 }
 
-if (!verificarTiempo()) throw new Error("Expirado");
+if (!verificarTiempo()) {
+  throw new Error("QR expirado");
+}
 
-// ==============================
-// 🚀 REGISTRO
-// ==============================
+// ENVIAR
 document.getElementById("form").onsubmit = async (e) => {
   e.preventDefault();
 
@@ -234,19 +250,25 @@ document.getElementById("form").onsubmit = async (e) => {
       })
     });
 
+    if (!res.ok) {
+      throw new Error("Error servidor");
+    }
+
     const data = await res.json();
 
-    msg.innerText = data.mensaje;
+    msg.innerText = data.mensaje || "Sin respuesta del servidor";
 
-    if (data.mensaje.includes("registrada")) {
+    if (data.mensaje && data.mensaje.includes("registrada")) {
       msg.classList.add("success");
     } else {
       msg.classList.add("error");
     }
 
   } catch (error) {
+
     msg.innerText = "Error de conexión ❌";
     msg.classList.add("error");
+
   }
 
   msg.classList.add("show");
