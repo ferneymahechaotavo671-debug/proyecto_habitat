@@ -4,39 +4,53 @@ const path = require("path");
 const ExcelJS = require("exceljs");
 const cron = require("node-cron");
 
-// 🔥 FECHA COLOMBIA
-function fechaColombia() {
-  const fecha = new Date();
-
-  const opciones = {
-    timeZone: "America/Bogota",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false
-  };
-
-  const partes = new Intl.DateTimeFormat("en-CA", opciones).formatToParts(fecha);
-
-  const map = {};
-  partes.forEach(p => {
-    map[p.type] = p.value;
-  });
-
-  return `${map.year}-${map.month}-${map.day} ${map.hour}:${map.minute}:${map.second}`;
-}
-
 const app = express();
 const PORT = process.env.PORT || 8080;
 
+const PASSWORD_ADMIN = "Habitat2026";
+
+// =========================
+// MIDDLEWARE BASE
+// =========================
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// =========================
+// 🔐 LOGIN ADMIN
+// =========================
+app.post("/login", (req, res) => {
+  const { password } = req.body;
+
+  if (password === PASSWORD_ADMIN) {
+    return res.json({ ok: true });
+  }
+
+  return res.status(401).json({ ok: false });
+});
+
+// =========================
+// 🔐 PROTECCIÓN ADMIN (IMPORTANTE)
+// =========================
+app.use((req, res, next) => {
+  if (req.path.startsWith("/admin")) {
+
+    const auth = req.headers.authorization;
+
+    if (!auth || auth !== PASSWORD_ADMIN) {
+      return res.status(403).send("Acceso denegado 🔒");
+    }
+  }
+  next();
+});
+
+// =========================
+// ARCHIVOS ESTATICOS
+// =========================
 app.use(express.static(path.join(__dirname, "publico")));
 
-// 🔌 MYSQL
+// =========================
+// MYSQL
+// =========================
 const db = mysql.createConnection({
   host: process.env.MYSQLHOST,
   user: process.env.MYSQLUSER,
@@ -50,9 +64,9 @@ db.connect(err => {
   console.log("✅ MySQL conectado");
 });
 
-/* =========================
-   🔥 REGISTRO QR
-========================= */
+// =========================
+// REGISTRO QR
+// =========================
 app.post("/registro", (req, res) => {
 
   let cedula = req.body.cedula?.toString().trim();
@@ -74,14 +88,8 @@ app.post("/registro", (req, res) => {
     [codigoEdificio],
     (err, eds) => {
 
-      if (err) {
-        console.error("ERROR EDIFICIO:", err);
-        return res.status(500).json({ mensaje: "Error servidor ❌" });
-      }
-
-      if (eds.length === 0) {
-        return res.json({ mensaje: "QR inválido ❌" });
-      }
+      if (err) return res.status(500).json({ mensaje: "Error servidor ❌" });
+      if (eds.length === 0) return res.json({ mensaje: "QR inválido ❌" });
 
       const edificio = eds[0];
 
@@ -94,14 +102,8 @@ app.post("/registro", (req, res) => {
         [cedula, edificio.id],
         (err, users) => {
 
-          if (err) {
-            console.error("ERROR USUARIO:", err);
-            return res.status(500).json({ mensaje: "Error servidor ❌" });
-          }
-
-          if (users.length === 0) {
-            return res.json({ mensaje: "No autorizado 🚫" });
-          }
+          if (err) return res.status(500).json({ mensaje: "Error servidor ❌" });
+          if (users.length === 0) return res.json({ mensaje: "No autorizado 🚫" });
 
           const user = users[0];
 
@@ -112,10 +114,7 @@ app.post("/registro", (req, res) => {
             [cedula, edificio.id],
             (err, last) => {
 
-              if (err) {
-                console.error("ERROR HISTORIAL:", err);
-                return res.status(500).json({ mensaje: "Error servidor ❌" });
-              }
+              if (err) return res.status(500).json({ mensaje: "Error servidor ❌" });
 
               let tipo = "Entrada";
 
@@ -138,7 +137,7 @@ app.post("/registro", (req, res) => {
                 (err) => {
 
                   if (err) {
-                    console.error("ERROR INSERT:", err);
+                    console.error(err);
                     return res.status(500).json({ mensaje: "Error registro ❌" });
                   }
 
@@ -157,9 +156,9 @@ app.post("/registro", (req, res) => {
   );
 });
 
-/* =========================
-   📊 ADMIN REGISTROS
-========================= */
+// =========================
+// ADMIN REGISTROS
+// =========================
 app.get("/admin/registros", (req, res) => {
 
   const { edificio_id, cedula } = req.query;
@@ -191,9 +190,9 @@ app.get("/admin/registros", (req, res) => {
   });
 });
 
-/* =========================
-   🏢 EDIFICIOS
-========================= */
+// =========================
+// EDIFICIOS
+// =========================
 app.get("/admin/edificios", (req, res) => {
   db.query("SELECT * FROM edificios", (err, data) => {
     if (err) return res.status(500).json(err);
@@ -201,9 +200,9 @@ app.get("/admin/edificios", (req, res) => {
   });
 });
 
-/* =========================
-   🏢 AGREGAR EDIFICIO
-========================= */
+// =========================
+// AGREGAR EDIFICIO
+// =========================
 app.post("/admin/agregar-edificio", (req, res) => {
 
   const { nombre } = req.body;
@@ -212,7 +211,6 @@ app.post("/admin/agregar-edificio", (req, res) => {
     return res.status(400).json({ mensaje: "Nombre requerido" });
   }
 
-  // 🔥 FIX: mismo formato que usa el QR del frontend
   const codigo_qr = nombre
     .toLowerCase()
     .trim()
@@ -225,19 +223,16 @@ app.post("/admin/agregar-edificio", (req, res) => {
     [nombre, codigo_qr],
     (err) => {
 
-      if (err) {
-        console.error(err);
-        return res.status(500).json({ mensaje: "Error al guardar edificio ❌" });
-      }
+      if (err) return res.status(500).json({ mensaje: "Error edificio ❌" });
 
-      res.json({ mensaje: "Edificio agregado correctamente ✅" });
+      res.json({ mensaje: "Edificio agregado ✅" });
     }
   );
 });
 
-/* =========================
-   👤 CREAR USUARIO
-========================= */
+// =========================
+// CREAR USUARIO
+// =========================
 app.post("/admin/crear-usuario", (req, res) => {
 
   let { nombre, cedula, rol_id, edificios } = req.body;
@@ -250,30 +245,22 @@ app.post("/admin/crear-usuario", (req, res) => {
     edificios = edificios ? [edificios] : [];
   }
 
-  // 🔍 1. VER SI EL USUARIO YA EXISTE
   db.query(
     "SELECT id FROM usuarios WHERE cedula = ?",
     [cedula],
     (err, rows) => {
 
-      if (err) {
-        console.error(err);
-        return res.status(500).json({ mensaje: "Error consultando usuario ❌" });
-      }
+      if (err) return res.status(500).json({ mensaje: "Error usuario ❌" });
 
       let usuarioId;
 
-      const continuarAsignacion = () => {
+      const asignar = () => {
 
-        // 🔥 si no selecciona edificios → todos
         if (edificios.length === 0) {
 
           db.query("SELECT id FROM edificios", (err, eds) => {
 
-            if (err) {
-              console.error(err);
-              return res.status(500).json({ mensaje: "Error edificios ❌" });
-            }
+            if (err) return res.status(500).json({ mensaje: "Error edificios ❌" });
 
             const values = eds.map(e => [usuarioId, e.id]);
 
@@ -281,12 +268,9 @@ app.post("/admin/crear-usuario", (req, res) => {
               "INSERT INTO usuario_edificio (usuario_id, edificio_id) VALUES ?",
               [values],
               (err) => {
-                if (err) {
-                  console.error(err);
-                  return res.status(500).json({ mensaje: "Error asignando edificios ❌" });
-                }
+                if (err) return res.status(500).json({ mensaje: "Error asignación ❌" });
 
-                return res.json({ mensaje: "Usuario listo con TODOS los edificios ✅" });
+                return res.json({ mensaje: "Usuario creado con todos los edificios ✅" });
               }
             );
           });
@@ -300,48 +284,37 @@ app.post("/admin/crear-usuario", (req, res) => {
             [values],
             (err) => {
 
-              if (err) {
-                console.error(err);
-                return res.status(500).json({ mensaje: "Error asignando edificios ❌" });
-              }
+              if (err) return res.status(500).json({ mensaje: "Error asignación ❌" });
 
-              return res.json({ mensaje: "Usuario asignado correctamente ✅" });
+              return res.json({ mensaje: "Usuario creado correctamente ✅" });
             }
           );
         }
       };
 
-      // 👇 SI YA EXISTE
       if (rows.length > 0) {
-
         usuarioId = rows[0].id;
-
-        return continuarAsignacion();
+        return asignar();
       }
 
-      // 👇 SI NO EXISTE → CREAR
       db.query(
         "INSERT INTO usuarios (nombre, cedula, rol_id) VALUES (?, ?, ?)",
         [nombre, cedula, rol_id],
         (err, result) => {
 
-          if (err) {
-            console.error(err);
-            return res.status(500).json({ mensaje: "Error creando usuario ❌" });
-          }
+          if (err) return res.status(500).json({ mensaje: "Error creando usuario ❌" });
 
           usuarioId = result.insertId;
-
-          continuarAsignacion();
+          asignar();
         }
       );
     }
   );
 });
 
-/* =========================
-   📄 EXCEL
-========================= */
+// =========================
+// EXCEL
+// =========================
 app.get("/admin/exportar-excel-mensual", (req, res) => {
 
   const mes = req.query.mes;
@@ -364,14 +337,7 @@ app.get("/admin/exportar-excel-mensual", (req, res) => {
         { header: "Fecha", key: "fecha_hora" }
       ];
 
-      data.forEach(r => {
-        ws.addRow({
-          ...r,
-          fecha_hora: new Date(r.fecha_hora).toLocaleString("es-CO", {
-            timeZone: "America/Bogota"
-          })
-        });
-      });
+      data.forEach(r => ws.addRow(r));
 
       res.setHeader("Content-Type", "application/vnd.openxmlformats");
       res.setHeader("Content-Disposition", "attachment");
@@ -382,67 +348,9 @@ app.get("/admin/exportar-excel-mensual", (req, res) => {
   );
 });
 
-/* =========================
-   ⏰ CRON
-========================= */
-cron.schedule("59 23 * * *", () => {
-
-  console.log("⏰ Ejecutando cierre automático...");
-
-  db.query(`
-    SELECT r.*
-    FROM registros r
-    INNER JOIN (
-      SELECT cedula, edificio_id, MAX(id) as ultimo
-      FROM registros
-      GROUP BY cedula, edificio_id
-    ) t ON r.id = t.ultimo
-    WHERE r.tipo_registro = 'Entrada'
-  `, (err, pendientes) => {
-
-    if (err) {
-      console.error("ERROR BUSCANDO PENDIENTES:", err);
-      return;
-    }
-
-    if (pendientes.length === 0) {
-      console.log("✅ No hay pendientes");
-      return;
-    }
-
-    pendientes.forEach(p => {
-
-      db.query(`
-        INSERT INTO registros
-        (nombre, cedula, edificio, tipo_registro, edificio_id, rol, observacion)
-        VALUES (?, ?, ?, 'Salida', ?, ?, 'Salida no registrada')
-      `,
-      [
-        p.nombre,
-        p.cedula,
-        p.edificio,
-        p.edificio_id,
-        p.rol
-      ],
-      (err) => {
-
-        if (err) {
-          console.error("ERROR INSERTANDO SALIDA AUTO:", err);
-        } else {
-          console.log(`✅ Salida automática para ${p.nombre}`);
-        }
-
-      });
-
-    });
-
-  });
-
-});
-
-/* =========================
-   🚀 SERVER
-========================= */
+// =========================
+// SERVER
+// =========================
 app.listen(PORT, () => {
   console.log("Servidor corriendo en", PORT);
 });

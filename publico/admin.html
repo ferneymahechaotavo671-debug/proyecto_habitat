@@ -12,49 +12,24 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  font-family: Arial, Helvetica, sans-serif;
 }
 
-/* ===== FUENTE PRO ===== */
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap');
-
+/* ===== FONDO ===== */
 body {
-  font-family: 'Poppins', sans-serif;
   background: linear-gradient(135deg, #0f3d2e, #1f7a63, #38b48b);
   min-height: 100vh;
   padding: 20px;
-
-  animation: fondoAnim 6s ease-in-out infinite alternate;
-}
-
-/* animación fondo */
-@keyframes fondoAnim {
-  0% { filter: brightness(0.95); }
-  100% { filter: brightness(1.05); }
 }
 
 /* ===== CONTENEDOR ===== */
 .container {
   background: rgba(255,255,255,0.95);
-  backdrop-filter: blur(10px);
-  padding: 25px;
+  padding: 20px;
   border-radius: 20px;
   max-width: 1100px;
   margin: auto;
-  box-shadow: 0 20px 40px rgba(0,0,0,0.25);
-
-  animation: aparecer 0.5s ease;
-}
-
-/* animación entrada */
-@keyframes aparecer {
-  from {
-    opacity: 0;
-    transform: translateY(15px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  box-shadow: 0px 10px 30px rgba(0,0,0,0.3);
 }
 
 /* ===== TITULO ===== */
@@ -62,189 +37,84 @@ h1 {
   text-align: center;
   color: #0f3d2e;
   margin-bottom: 20px;
-  font-weight: 600;
 }
 
 /* ===== FILTROS ===== */
 .filters {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   flex-wrap: wrap;
-  margin-bottom: 20px;
+  margin-bottom: 15px;
 }
 
-/* INPUTS Y SELECT */
 select, input {
-  padding: 11px;
-  border-radius: 12px;
-  border: 1px solid #ddd;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid #ccc;
   flex: 1;
-  background: #f9f9f9;
-  transition: all 0.3s ease;
 }
 
-/* focus pro */
-select:focus, input:focus {
-  border-color: #1f7a63;
-  background: #fff;
-  box-shadow: 0 0 0 3px rgba(31,122,99,0.2);
-}
-
-/* ===== BOTONES PRO ===== */
+/* ===== BOTONES ===== */
 button {
-  padding: 11px 16px;
+  padding: 10px 15px;
   border: none;
-  border-radius: 12px;
+  border-radius: 10px;
   background: linear-gradient(135deg, #1f7a63, #38b48b);
   color: white;
   cursor: pointer;
-  transition: all 0.25s ease;
-  font-weight: 500;
-
-  display: flex;
-  align-items: center;
-  gap: 6px;
 }
 
-/* hover */
 button:hover {
-  transform: translateY(-2px) scale(1.02);
-  box-shadow: 0 10px 20px rgba(0,0,0,0.25);
-}
-
-/* click */
-button:active {
-  transform: scale(0.96);
+  transform: scale(1.05);
 }
 
 /* ===== TABLA ===== */
 table {
   width: 100%;
   border-collapse: collapse;
-  margin-top: 15px;
+  margin-top: 10px;
   background: white;
-  border-radius: 15px;
+  border-radius: 10px;
   overflow: hidden;
 }
 
-/* encabezado */
 th {
-  background: linear-gradient(135deg, #1f7a63, #2e8f77);
+  background: #1f7a63;
   color: white;
-  padding: 12px;
-  font-size: 13px;
-  text-transform: uppercase;
+  padding: 10px;
 }
 
-/* celdas */
 td {
-  padding: 12px;
+  padding: 10px;
   border-bottom: 1px solid #eee;
   text-align: center;
 }
 
-/* filas */
-tbody tr {
-  transition: 0.25s;
-}
-
-/* hover fila */
-tbody tr:hover {
-  background: #ecfbf7;
-}
-
-/* alternado */
-tbody tr:nth-child(even) {
-  background: #f7fdfb;
-}
-
-/* ===== BADGES (ENTRADA / SALIDA) ===== */
-.badge {
-  padding: 5px 10px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-/* entrada */
-.badge-entrada {
-  background: #d4f8e8;
-  color: #1b8f6a;
-}
-
-/* salida */
-.badge-salida {
-  background: #ffe3e3;
-  color: #c0392b;
-}
-
-/* ===== FORMULARIO MODAL ===== */
+/* ===== MODAL ===== */
 #formulario {
   display: none;
   position: fixed;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%) scale(0.95);
+  transform: translate(-50%, -50%);
   background: white;
-  padding: 25px;
-  border-radius: 18px;
-  width: 340px;
-  box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+  padding: 20px;
+  border-radius: 15px;
+  width: 320px;
+  box-shadow: 0px 10px 30px rgba(0,0,0,0.4);
   z-index: 999;
-
-  opacity: 0;
-  transition: all 0.3s ease;
 }
 
-/* mostrar modal */
-#formulario.show {
-  opacity: 1;
-  transform: translate(-50%, -50%) scale(1);
-}
-
-/* inputs modal */
 #formulario input,
 #formulario select {
   width: 100%;
-  margin: 8px 0;
-}
-
-/* titulo modal */
-#formulario h3 {
-  color: #0f3d2e;
-  margin-bottom: 10px;
-}
-
-/* ===== FONDO OSCURO MODAL ===== */
-.overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0,0,0,0.4);
-  backdrop-filter: blur(3px);
-  display: none;
-  z-index: 998;
-}
-
-.overlay.show {
-  display: block;
-}
-
-/* ===== RESPONSIVE ===== */
-@media (max-width: 768px) {
-  .filters {
-    flex-direction: column;
-  }
-
-  table {
-    font-size: 12px;
-  }
+  margin: 5px 0;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid #ccc;
 }
 
 </style>
-
 </head>
 
 <body>
@@ -259,12 +129,11 @@ tbody tr:nth-child(even) {
 <input id="cedula" placeholder="Cédula">
 
 <button onclick="cargar()">Filtrar</button>
+<button onclick="exportarExcel()">Excel</button>
+<button onclick="generarReporte()">Reporte</button>
 
-<button onclick="exportarExcel()">📥 Excel</button>
-<button onclick="generarReporte()">📊 Reporte</button>
-
-<button onclick="mostrarFormulario()">➕ Agregar Persona</button>
-<button onclick="mostrarFormEdificio()">🏢 Agregar Edificio</button>
+<button onclick="mostrarFormulario()">➕ Persona</button>
+<button onclick="mostrarFormEdificio()">🏢 Edificio</button>
 
 </div>
 
@@ -278,235 +147,157 @@ tbody tr:nth-child(even) {
 <th>Rol</th>
 <th>Tipo</th>
 <th>Fecha</th>
-<th>Observación</th>
 </tr>
 </thead>
+
 <tbody id="tabla"></tbody>
 </table>
 
 </div>
 
+<!-- FORM -->
 <div id="formulario">
 
 <h3>Agregar Persona</h3>
 
-<input id="nombre" placeholder="Nombre completo">
+<input id="nombre" placeholder="Nombre">
 <input id="cedulaNuevo" placeholder="Cédula">
 
 <select id="rol">
-  <option value="1">Administración</option>
-  <option value="2">Vigilancia</option>
-  <option value="3">Servicios Generales</option>
-  <option value="4">Todero</option>
+<option value="1">Admin</option>
+<option value="2">Vigilancia</option>
+<option value="3">Servicios</option>
+<option value="4">Todero</option>
 </select>
 
-<select id="edificioNuevo" multiple style="height:120px;"></select>
+<select id="edificioNuevo" multiple></select>
 
 <button onclick="guardarPersona()">Guardar</button>
-<button onclick="cerrarFormulario()" style="margin-top:5px; background:red;">Cerrar</button>
-
-</div>
-
-<div id="formEdificio" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
-background:white; padding:20px; border-radius:15px; width:300px; box-shadow:0px 10px 30px rgba(0,0,0,0.4); z-index:999;">
-
-<h3>Agregar Edificio</h3>
-
-<input id="nombreEdificio" placeholder="Nombre del edificio">
-
-<button onclick="guardarEdificio()">Guardar</button>
-<button onclick="cerrarFormEdificio()" style="margin-top:5px; background:red;">Cerrar</button>
+<button onclick="cerrarFormulario()">Cerrar</button>
 
 </div>
 
 <script>
 
+const auth = localStorage.getItem("auth");
+
+// 🔐 BLOQUEO FRONT
+if (!auth) {
+  location.href = "/login.html";
+}
+
+// ======================
+// 🔥 FETCH CON AUTH (IMPORTANTE)
+// ======================
+function headersAuth(){
+  return {
+    "Content-Type": "application/json",
+    "Authorization": auth
+  };
+}
+
 // ======================
 // CARGAR EDIFICIOS
 // ======================
 async function loadEdificios(){
-  try{
-    const res = await fetch("/admin/edificios");
-    const data = await res.json();
+  const res = await fetch("/admin/edificios", {
+    headers: { "Authorization": auth }
+  });
 
-    const sel = document.getElementById("edificio");
-    sel.innerHTML = "<option value=''>Todos</option>";
+  const data = await res.json();
 
-    data.forEach(e=>{
-      sel.innerHTML += `<option value="${e.id}">${e.nombre}</option>`;
-    });
+  const sel = document.getElementById("edificio");
+  sel.innerHTML = "<option value=''>Todos</option>";
 
-  }catch(err){
-    console.error("Error cargando edificios", err);
-  }
+  data.forEach(e=>{
+    sel.innerHTML += `<option value="${e.id}">${e.nombre}</option>`;
+  });
 }
 
 // ======================
-// FILTRAR REGISTROS
+// REGISTROS
 // ======================
 async function cargar(){
 
-  try{
-    let e = document.getElementById("edificio").value;
-    let c = document.getElementById("cedula").value;
+  let e = document.getElementById("edificio").value;
+  let c = document.getElementById("cedula").value;
 
-    let url = "/admin/registros?";
+  let url = "/admin/registros?";
 
-    if(e) url += "edificio_id="+e+"&";
-    if(c) url += "cedula="+c;
+  if(e) url += "edificio_id="+e+"&";
+  if(c) url += "cedula="+c;
 
-    const res = await fetch(url);
-    const data = await res.json();
+  const res = await fetch(url, {
+    headers: { "Authorization": auth }
+  });
 
-    const t = document.getElementById("tabla");
-    t.innerHTML = "";
+  const data = await res.json();
 
-    data.forEach(r=>{
+  const t = document.getElementById("tabla");
+  t.innerHTML = "";
 
-      const fecha = new Date(r.fecha_hora).toLocaleString("es-CO", {
-        timeZone: "America/Bogota"
-      });
+  data.forEach(r=>{
+    const fecha = new Date(r.fecha_hora).toLocaleString("es-CO");
 
-      t.innerHTML += `
-        <tr>
-          <td>${r.id}</td>
-          <td>${r.nombre}</td>
-          <td>${r.cedula}</td>
-          <td>${r.edificio_nombre || r.edificio}</td>
-          <td>${r.rol || "-"}</td>
-          <td>${r.tipo_registro}</td>
-          <td>${fecha}</td>
-          <td style="color:red;">
-  ${r.observacion || "-"}
-</td>
-        </tr>
-      `;
-    });
-
-  }catch(err){
-    console.error("Error cargando registros", err);
-  }
+    t.innerHTML += `
+      <tr>
+        <td>${r.id}</td>
+        <td>${r.nombre}</td>
+        <td>${r.cedula}</td>
+        <td>${r.edificio_nombre || r.edificio}</td>
+        <td>${r.rol}</td>
+        <td>${r.tipo_registro}</td>
+        <td>${fecha}</td>
+      </tr>
+    `;
+  });
 }
 
 // ======================
-// FORMULARIO
-// ======================
-function mostrarFormulario(){
-  document.getElementById("formulario").style.display = "block";
-}
-
-function cerrarFormulario(){
-  document.getElementById("formulario").style.display = "none";
-}
-
-async function cargarEdificiosForm(){
-  try{
-    const res = await fetch("/admin/edificios");
-    const data = await res.json();
-
-    const sel = document.getElementById("edificioNuevo");
-    sel.innerHTML = "";
-
-    data.forEach(e=>{
-      sel.innerHTML += `<option value="${e.id}">${e.nombre}</option>`;
-    });
-
-  }catch(err){
-    console.error(err);
-  }
-}
-
-// ======================
-// GUARDAR USUARIO
+// GUARDAR PERSONA
 // ======================
 async function guardarPersona(){
 
-  const nombre = document.getElementById("nombre").value.trim();
-  const cedula = document.getElementById("cedulaNuevo").value.trim();
+  const nombre = document.getElementById("nombre").value;
+  const cedula = document.getElementById("cedulaNuevo").value;
   const rol_id = document.getElementById("rol").value;
 
   const edificios = Array.from(
     document.getElementById("edificioNuevo").selectedOptions
   ).map(o => o.value);
 
-  if(!nombre || !cedula){
-    alert("Completa los datos");
-    return;
-  }
-
   const res = await fetch("/admin/crear-usuario", {
     method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({
-      nombre,
-      cedula,
-      rol_id,
-      edificios
-    })
+    headers: headersAuth(),
+    body: JSON.stringify({ nombre, cedula, rol_id, edificios })
   });
 
   const data = await res.json();
   alert(data.mensaje);
-
-  cerrarFormulario();
 }
 
 // ======================
-// 📥 EXPORTAR EXCEL
+// EDIFICIOS
 // ======================
-function exportarExcel(){
-
-  let mes = new Date().getMonth() + 1;
-  window.open("/admin/exportar-excel-mensual?mes=" + mes, "_blank");
-}
-
-// ======================
-// 📊 REPORTE
-// ======================
-function generarReporte(){
-
-  let mes = new Date().getMonth() + 1;
-  window.open("/admin/exportar-excel-mensual?mes=" + mes, "_blank");
-}
-
-// ======================
-// FORM EDIFICIO
-// ======================
-function mostrarFormEdificio(){
-  document.getElementById("formEdificio").style.display = "block";
-}
-
-function cerrarFormEdificio(){
-  document.getElementById("formEdificio").style.display = "none";
-}
-
 async function guardarEdificio(){
 
-  const nombre = document.getElementById("nombreEdificio").value.trim();
-
-  if(!nombre){
-    alert("Ingresa nombre");
-    return;
-  }
+  const nombre = document.getElementById("nombreEdificio").value;
 
   const res = await fetch("/admin/agregar-edificio", {
     method:"POST",
-    headers:{"Content-Type":"application/json"},
+    headers: headersAuth(),
     body: JSON.stringify({ nombre })
   });
 
   const data = await res.json();
   alert(data.mensaje);
-
-  cerrarFormEdificio();
-  loadEdificios();
-  cargarEdificiosForm();
 }
 
+// ======================
 // INIT
+// ======================
 loadEdificios();
 cargar();
-cargarEdificiosForm();
 
 </script>
 
