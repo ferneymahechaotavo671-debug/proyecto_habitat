@@ -44,45 +44,31 @@ body {
     max-width: 420px;
     box-shadow: 0 20px 40px rgba(0,0,0,0.25);
     text-align: center;
-
     animation: aparecer 0.6s ease;
 }
 
-/* animación entrada */
+/* ===== ANIMACIÓN ===== */
 @keyframes aparecer {
-    from {
-        opacity: 0;
-        transform: translateY(20px) scale(0.97);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-    }
+    from { opacity: 0; transform: translateY(20px) scale(0.97); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 /* ===== LOGO ===== */
 .logo {
     width: 110px;
     margin-bottom: 15px;
-    transition: transform 0.3s ease;
-}
-
-.logo:hover {
-    transform: scale(1.05);
 }
 
 /* ===== TITULO ===== */
 h1 {
     color: #0f3d2e;
     margin-bottom: 10px;
-    font-weight: 600;
 }
 
 /* ===== SUBTITULO ===== */
 h3 {
     color: #1f7a63;
     margin-bottom: 20px;
-    font-weight: 400;
 }
 
 /* ===== FORM ===== */
@@ -92,94 +78,37 @@ form {
     gap: 15px;
 }
 
-/* ===== INPUTS ===== */
+/* ===== INPUT ===== */
 input {
-    width: 100%;
     padding: 13px;
     border-radius: 12px;
     border: 1px solid #ddd;
-    outline: none;
     background: #f9f9f9;
-    transition: all 0.3s ease;
-    font-size: 14px;
 }
 
-/* FOCUS PRO */
-input:focus {
-    border-color: #1f7a63;
-    background: #fff;
-    box-shadow: 0 0 0 3px rgba(31,122,99,0.2);
-}
-
-/* ===== BOTÓN PRO ===== */
+/* ===== BOTÓN ===== */
 button {
     padding: 13px;
     border: none;
     border-radius: 12px;
     background: linear-gradient(135deg, #1f7a63, #38b48b);
     color: white;
-    font-size: 15px;
-    font-weight: 500;
     cursor: pointer;
-    transition: all 0.25s ease;
-
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 8px;
-}
-
-/* HOVER */
-button:hover {
-    transform: translateY(-2px) scale(1.02);
-    box-shadow: 0 10px 20px rgba(0,0,0,0.25);
-}
-
-/* CLICK */
-button:active {
-    transform: scale(0.97);
 }
 
 /* ===== MENSAJE ===== */
 #mensaje {
     margin-top: 15px;
-    font-weight: 500;
     opacity: 0;
-    transform: translateY(5px);
-    transition: all 0.4s ease;
+    transition: 0.4s;
 }
 
 #mensaje.show {
     opacity: 1;
-    transform: translateY(0);
 }
 
-.success {
-    color: #1f7a63;
-}
-
-.error {
-    color: #d93025;
-}
-
-/* ===== DETALLE PRO ===== */
-.container::before {
-    content: "";
-    display: block;
-    width: 50px;
-    height: 4px;
-    background: linear-gradient(135deg, #1f7a63, #38b48b);
-    border-radius: 10px;
-    margin: 0 auto 15px auto;
-}
-
-/* ===== RESPONSIVE ===== */
-@media (max-width: 480px) {
-    .container {
-        width: 95%;
-        padding: 25px;
-    }
-}
+.success { color: #1f7a63; }
+.error { color: #d93025; }
 
 </style>
 </head>
@@ -205,7 +134,9 @@ button:active {
 
 <script>
 
+// ==============================
 // QR
+// ==============================
 const params = new URLSearchParams(location.search);
 let codigo = params.get("edificio");
 
@@ -214,39 +145,10 @@ if (!codigo) {
   throw new Error("Sin QR");
 }
 
-// NORMALIZAR
-codigo = codigo
-  .toString()
-  .trim()
-  .toLowerCase()
-  .replace(/\s+/g, "")
-  .replace(/\./g, "")
-  .replace(/[^a-z0-9]/g, "");
-
-// 🔥 OBTENER NOMBRE REAL DESDE EL SERVER
-async function cargarNombreEdificio() {
-  try {
-
-    const res = await fetch("/admin/edificios");
-    const edificios = await res.json();
-
-    const edificio = edificios.find(e =>
-      e.codigo_qr === codigo
-    );
-
-    document.getElementById("edificio").innerText =
-      edificio ? edificio.nombre : "Edificio no válido";
-
-  } catch (error) {
-    document.getElementById("edificio").innerText = "Error cargando edificio";
-  }
-}
-
-// ejecutar
-cargarNombreEdificio();
+codigo = codigo.toLowerCase().trim().replace(/\s+/g,"").replace(/[^a-z0-9]/g,"");
 
 // ==============================
-// ⏱️ TIEMPO
+// ⏱ TIEMPO QR (NO TOCADO)
 // ==============================
 const TIEMPO_LIMITE = 20 * 60 * 1000;
 
@@ -261,14 +163,11 @@ const inicio = parseInt(inicioGuardado);
 
 function verificarTiempo() {
   const ahora = Date.now();
-  const pasado = ahora - inicio;
-
-  if (pasado > TIEMPO_LIMITE) {
-
+  if (ahora - inicio > TIEMPO_LIMITE) {
     localStorage.removeItem("inicioQR");
 
     document.body.innerHTML = `
-      <div style="text-align:center; margin-top:50px;">
+      <div style="text-align:center;">
         <h2>⏰ Sesión expirada</h2>
         <p>Debes escanear nuevamente el QR</p>
       </div>
@@ -278,11 +177,41 @@ function verificarTiempo() {
   return true;
 }
 
-if (!verificarTiempo()) {
-  throw new Error("QR expirado");
+if (!verificarTiempo()) throw new Error("expirado");
+
+// ==============================
+// 🔥 FIX REAL: CARGAR EDIFICIOS
+// ==============================
+async function cargarNombreEdificio() {
+  try {
+
+    const auth = localStorage.getItem("auth"); // 👈 importante
+
+    const res = await fetch("/admin/edificios", {
+      headers: {
+        "Authorization": auth || ""
+      }
+    });
+
+    if (!res.ok) throw new Error("error");
+
+    const edificios = await res.json();
+
+    const edificio = edificios.find(e => e.codigo_qr === codigo);
+
+    document.getElementById("edificio").innerText =
+      edificio ? edificio.nombre : "Edificio no válido";
+
+  } catch (error) {
+    document.getElementById("edificio").innerText = "Error cargando edificio";
+  }
 }
 
-// ENVIAR
+cargarNombreEdificio();
+
+// ==============================
+// ENVIAR REGISTRO
+// ==============================
 document.getElementById("form").onsubmit = async (e) => {
   e.preventDefault();
 
@@ -290,12 +219,8 @@ document.getElementById("form").onsubmit = async (e) => {
 
   const cedula = document.getElementById("cedula").value.trim();
 
-  console.log("CEDULA:", cedula);
-  console.log("CODIGO:", codigo);
-
   const msg = document.getElementById("mensaje");
 
-  msg.className = "";
   msg.classList.remove("show");
 
   try {
@@ -309,28 +234,20 @@ document.getElementById("form").onsubmit = async (e) => {
       })
     });
 
-    if (!res.ok) {
-      throw new Error("Error servidor");
-    }
-
     const data = await res.json();
 
-    msg.innerText = data.mensaje || "Sin respuesta del servidor";
+    msg.innerText = data.mensaje;
 
-    if (data.mensaje && data.mensaje.includes("registrada")) {
-      msg.classList.add("success");
+    if (data.mensaje.includes("registrada")) {
+      msg.className = "success show";
     } else {
-      msg.classList.add("error");
+      msg.className = "error show";
     }
 
-  } catch (error) {
-
+  } catch (err) {
     msg.innerText = "Error de conexión ❌";
-    msg.classList.add("error");
-
+    msg.className = "error show";
   }
-
-  msg.classList.add("show");
 };
 
 </script>
