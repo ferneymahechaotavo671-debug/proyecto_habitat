@@ -15,20 +15,26 @@
   font-family: Arial, Helvetica, sans-serif;
 }
 
-/* ===== FONDO ===== */
+/* ===== FONDO PRO ===== */
 body {
   background: linear-gradient(135deg, #0f3d2e, #1f7a63, #38b48b);
   min-height: 100vh;
-  padding: 20px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 30px;
+  animation: fondoAnim 6s ease-in-out infinite alternate;
+}
+
+@keyframes fondoAnim {
+  0% { filter: brightness(0.95); }
+  100% { filter: brightness(1.05); }
 }
 
 /* ===== LOGIN OVERLAY ===== */
 #loginBox {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+  inset: 0;
   background: rgba(0,0,0,0.6);
   display: flex;
   justify-content: center;
@@ -39,61 +45,25 @@ body {
 .login-card {
   background: white;
   padding: 30px;
-  border-radius: 15px;
+  border-radius: 18px;
+  width: 320px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.3);
   text-align: center;
-  width: 300px;
+  animation: aparecer 0.4s ease;
 }
 
 .login-card input {
   width: 100%;
-  padding: 10px;
+  padding: 12px;
   margin: 10px 0;
+  border-radius: 10px;
+  border: 1px solid #ddd;
+  outline: none;
 }
 
 .login-card button {
   width: 100%;
-  padding: 10px;
-  background: #1f7a63;
-  color: white;
-  border: none;
-}
-
-/* ===== CONTENEDOR ===== */
-.container {
-  background: rgba(255,255,255,0.95);
-  padding: 20px;
-  border-radius: 20px;
-  max-width: 1100px;
-  margin: auto;
-  box-shadow: 0px 10px 30px rgba(0,0,0,0.3);
-  display: none; /* 🔐 OCULTO HASTA LOGIN */
-}
-
-/* ===== TITULO ===== */
-h1 {
-  text-align: center;
-  color: #0f3d2e;
-  margin-bottom: 20px;
-}
-
-/* ===== FILTROS ===== */
-.filters {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-bottom: 15px;
-}
-
-select, input {
-  padding: 10px;
-  border-radius: 10px;
-  border: 1px solid #ccc;
-  flex: 1;
-}
-
-/* ===== BOTONES (TU DISEÑO ORIGINAL) ===== */
-button {
-  padding: 10px 15px;
+  padding: 12px;
   border: none;
   border-radius: 10px;
   background: linear-gradient(135deg, #1f7a63, #38b48b);
@@ -101,30 +71,107 @@ button {
   cursor: pointer;
 }
 
-button:hover {
-  transform: scale(1.05);
+/* ===== CONTENEDOR ===== */
+.container {
+  background: rgba(255,255,255,0.95);
+  backdrop-filter: blur(10px);
+  padding: 25px;
+  border-radius: 22px;
+  max-width: 1100px;
+  width: 100%;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.25);
+  animation: aparecer 0.5s ease;
+  display: none;
 }
 
-/* ===== TABLA ===== */
+/* animación */
+@keyframes aparecer {
+  from { opacity: 0; transform: translateY(15px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ===== TITULO ===== */
+h1 {
+  text-align: center;
+  color: #0f3d2e;
+  margin-bottom: 20px;
+  font-weight: 600;
+}
+
+/* ===== FILTROS ===== */
+.filters {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+select, input {
+  padding: 11px;
+  border-radius: 12px;
+  border: 1px solid #ddd;
+  flex: 1;
+  background: #f9f9f9;
+  transition: 0.3s;
+}
+
+select:focus, input:focus {
+  border-color: #1f7a63;
+  box-shadow: 0 0 0 3px rgba(31,122,99,0.2);
+  background: white;
+}
+
+/* ===== BOTONES PRO ===== */
+button {
+  padding: 11px 16px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #1f7a63, #38b48b);
+  color: white;
+  cursor: pointer;
+  transition: 0.25s;
+  font-weight: 500;
+}
+
+button:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 10px 20px rgba(0,0,0,0.25);
+}
+
+button:active {
+  transform: scale(0.96);
+}
+
+/* ===== TABLA PRO ===== */
 table {
   width: 100%;
   border-collapse: collapse;
-  margin-top: 10px;
+  margin-top: 15px;
   background: white;
-  border-radius: 10px;
+  border-radius: 15px;
   overflow: hidden;
 }
 
 th {
-  background: #1f7a63;
+  background: linear-gradient(135deg, #1f7a63, #2e8f77);
   color: white;
-  padding: 10px;
+  padding: 12px;
+  font-size: 13px;
+  text-transform: uppercase;
 }
 
 td {
-  padding: 10px;
+  padding: 12px;
   border-bottom: 1px solid #eee;
   text-align: center;
+}
+
+tbody tr:hover {
+  background: #ecfbf7;
+}
+
+tbody tr:nth-child(even) {
+  background: #f7fdfb;
 }
 
 /* ===== MODAL ===== */
@@ -191,7 +238,7 @@ td {
 ====================== */
 
 const PASSWORD = "Habitat2026";
-const EXPIRATION_TIME = 4 * 60 * 60 * 1000; // 4 horas
+const EXPIRATION_TIME = 4 * 60 * 60 * 1000;
 
 function login(){
 
@@ -228,13 +275,13 @@ function iniciarAdmin(){
   document.getElementById("loginBox").style.display = "none";
   document.querySelector(".container").style.display = "block";
 
-  // 🔥 IMPORTANTE: NO TOCAR TU SISTEMA ORIGINAL
+  // 🔥 IMPORTANTE NO TOCAR TU SISTEMA
   loadEdificios();
   cargar();
 }
 
 /* ======================
-   🔥 TU CÓDIGO ORIGINAL
+   TU CÓDIGO ORIGINAL
 ====================== */
 
 async function loadEdificios(){
