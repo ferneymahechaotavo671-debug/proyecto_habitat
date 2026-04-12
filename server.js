@@ -32,7 +32,12 @@ app.post("/login", (req, res) => {
 // 🔐 PROTECCIÓN ADMIN (IMPORTANTE)
 // =========================
 app.use((req, res, next) => {
-  if (req.path.startsWith("/admin")) {
+
+  if (req.path === "/admin.html") {
+    return next();
+  }
+
+  if (req.path.startsWith("/admin/")) {
 
     const auth = req.headers.authorization;
 
@@ -40,6 +45,7 @@ app.use((req, res, next) => {
       return res.status(403).send("Acceso denegado 🔒");
     }
   }
+
   next();
 });
 
