@@ -21,13 +21,10 @@ body {
   padding: 20px;
 }
 
-/* ===== LOGIN OVERLAY ===== */
+/* ===== LOGIN ===== */
 #loginBox {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+  inset: 0;
   background: rgba(0,0,0,0.6);
   display: flex;
   justify-content: center;
@@ -39,8 +36,8 @@ body {
   background: white;
   padding: 30px;
   border-radius: 15px;
-  text-align: center;
   width: 300px;
+  text-align: center;
 }
 
 .login-card input {
@@ -55,6 +52,7 @@ body {
   background: #1f7a63;
   color: white;
   border: none;
+  cursor: pointer;
 }
 
 /* ===== CONTENEDOR ===== */
@@ -65,39 +63,7 @@ body {
   max-width: 1100px;
   margin: auto;
   box-shadow: 0px 10px 30px rgba(0,0,0,0.3);
-  display: none; /* 🔥 oculto hasta login */
-}
-
-/* ===== TITULO ===== */
-h1 {
-  text-align: center;
-  color: #0f3d2e;
-  margin-bottom: 20px;
-}
-
-/* ===== FILTROS ===== */
-.filters {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-bottom: 15px;
-}
-
-select, input {
-  padding: 10px;
-  border-radius: 10px;
-  border: 1px solid #ccc;
-  flex: 1;
-}
-
-/* ===== BOTONES ===== */
-button {
-  padding: 10px 15px;
-  border: none;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #1f7a63, #38b48b);
-  color: white;
-  cursor: pointer;
+  display: none;
 }
 
 /* ===== TABLA ===== */
@@ -106,8 +72,6 @@ table {
   border-collapse: collapse;
   margin-top: 10px;
   background: white;
-  border-radius: 10px;
-  overflow: hidden;
 }
 
 th {
@@ -121,20 +85,15 @@ td {
   border-bottom: 1px solid #eee;
   text-align: center;
 }
-
-/* ===== MODAL ===== */
-#formulario {
-  display: none;
-}
 </style>
 </head>
 
 <body>
 
-<!-- 🔐 LOGIN -->
+<!-- LOGIN -->
 <div id="loginBox">
   <div class="login-card">
-    <h3>🔐 Acceso Admin</h3>
+    <h3>🔐 Admin</h3>
     <input type="password" id="pass" placeholder="Contraseña">
     <button onclick="login()">Ingresar</button>
     <p id="msg"></p>
@@ -155,9 +114,6 @@ td {
 <button onclick="exportarExcel()">Excel</button>
 <button onclick="generarReporte()">Reporte</button>
 
-<button onclick="mostrarFormulario()">➕ Persona</button>
-<button onclick="mostrarFormEdificio()">🏢 Edificio</button>
-
 </div>
 
 <table>
@@ -172,7 +128,6 @@ td {
 <th>Fecha</th>
 </tr>
 </thead>
-
 <tbody id="tabla"></tbody>
 </table>
 
@@ -181,7 +136,7 @@ td {
 <script>
 
 const PASSWORD = "Habitat2026";
-const EXPIRATION_TIME = 4 * 60 * 60 * 1000; // 4 horas
+const EXP_TIME = 4 * 60 * 60 * 1000; // 4 horas
 
 // ======================
 // LOGIN
@@ -191,16 +146,14 @@ function login(){
   const pass = document.getElementById("pass").value;
 
   if(pass !== PASSWORD){
-    document.getElementById("msg").innerText = "❌ Incorrecto";
+    document.getElementById("msg").innerText = "❌ Contraseña incorrecta";
     return;
   }
 
-  const now = Date.now();
-
   localStorage.setItem("auth", pass);
-  localStorage.setItem("auth_time", now);
+  localStorage.setItem("auth_time", Date.now());
 
-  showAdmin();
+  iniciarAdmin();
 }
 
 // ======================
@@ -211,13 +164,10 @@ function checkAuth(){
   const auth = localStorage.getItem("auth");
   const time = localStorage.getItem("auth_time");
 
-  if(!auth || !time){
-    return false;
-  }
+  if(!auth || !time) return false;
 
-  if(Date.now() - parseInt(time) > EXPIRATION_TIME){
-    localStorage.removeItem("auth");
-    localStorage.removeItem("auth_time");
+  if(Date.now() - parseInt(time) > EXP_TIME){
+    localStorage.clear();
     return false;
   }
 
@@ -227,17 +177,79 @@ function checkAuth(){
 // ======================
 // MOSTRAR ADMIN
 // ======================
-function showAdmin(){
+function iniciarAdmin(){
 
   document.getElementById("loginBox").style.display = "none";
   document.querySelector(".container").style.display = "block";
+
+  // 🔥 IMPORTANTE: AQUÍ SE ARREGLA TU ERROR
+  loadEdificios();
+  cargar();
+}
+
+// ======================
+// EDIFICIOS
+// ======================
+async function loadEdificios(){
+
+  const res = await fetch("/admin/edificios", {
+    headers: { "Authorization": localStorage.getItem("auth") }
+  });
+
+  const data = await res.json();
+
+  const sel = document.getElementById("edificio");
+  sel.innerHTML = "<option value=''>Todos</option>";
+
+  data.forEach(e=>{
+    sel.innerHTML += `<option value="${e.id}">${e.nombre}</option>`;
+  });
+}
+
+// ======================
+// TABLA
+// ======================
+async function cargar(){
+
+  let e = document.getElementById("edificio").value;
+  let c = document.getElementById("cedula").value;
+
+  let url = "/admin/registros?";
+
+  if(e) url += "edificio_id="+e+"&";
+  if(c) url += "cedula="+c;
+
+  const res = await fetch(url, {
+    headers: { "Authorization": localStorage.getItem("auth") }
+  });
+
+  const data = await res.json();
+
+  const t = document.getElementById("tabla");
+  t.innerHTML = "";
+
+  data.forEach(r=>{
+    const fecha = new Date(r.fecha_hora).toLocaleString("es-CO");
+
+    t.innerHTML += `
+      <tr>
+        <td>${r.id}</td>
+        <td>${r.nombre}</td>
+        <td>${r.cedula}</td>
+        <td>${r.edificio_nombre || r.edificio}</td>
+        <td>${r.rol}</td>
+        <td>${r.tipo_registro}</td>
+        <td>${fecha}</td>
+      </tr>
+    `;
+  });
 }
 
 // ======================
 // INIT
 // ======================
 if(checkAuth()){
-  showAdmin();
+  iniciarAdmin();
 }
 
 </script>
