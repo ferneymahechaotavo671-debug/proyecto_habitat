@@ -16,38 +16,18 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // =========================
-// 🔐 LOGIN ADMIN
+// 🔐 MIDDLEWARE ADMIN (CORRECTO)
 // =========================
-app.post("/login", (req, res) => {
-  const { password } = req.body;
+function validarAdmin(req, res, next) {
 
-  if (password === PASSWORD_ADMIN) {
-    return res.json({ ok: true });
-  }
+  const auth = req.headers.authorization;
 
-  return res.status(401).json({ ok: false });
-});
-
-// =========================
-// 🔐 PROTECCIÓN ADMIN (IMPORTANTE)
-// =========================
-app.use((req, res, next) => {
-
-  if (req.path === "/admin.html") {
-    return next();
-  }
-
-  if (req.path.startsWith("/admin/")) {
-
-    const auth = req.headers.authorization;
-
-    if (!auth || auth !== PASSWORD_ADMIN) {
-      return res.status(403).send("Acceso denegado 🔒");
-    }
+  if (!auth || auth !== PASSWORD_ADMIN) {
+    return res.status(403).json({ mensaje: "Acceso denegado 🔒" });
   }
 
   next();
-});
+}
 
 // =========================
 // ARCHIVOS ESTATICOS
@@ -68,6 +48,20 @@ const db = mysql.createConnection({
 db.connect(err => {
   if (err) return console.error("Error DB:", err);
   console.log("✅ MySQL conectado");
+});
+
+// =========================
+// LOGIN (solo valida contraseña)
+// =========================
+app.post("/login", (req, res) => {
+
+  const { password } = req.body;
+
+  if (password === PASSWORD_ADMIN) {
+    return res.json({ ok: true });
+  }
+
+  return res.status(401).json({ ok: false });
 });
 
 // =========================
@@ -142,10 +136,7 @@ app.post("/registro", (req, res) => {
                 ],
                 (err) => {
 
-                  if (err) {
-                    console.error(err);
-                    return res.status(500).json({ mensaje: "Error registro ❌" });
-                  }
+                  if (err) return res.status(500).json({ mensaje: "Error registro ❌" });
 
                   res.json({
                     mensaje: `${tipo} registrada ✅`,
@@ -163,9 +154,9 @@ app.post("/registro", (req, res) => {
 });
 
 // =========================
-// ADMIN REGISTROS
+// ADMIN REGISTROS (PROTEGIDO)
 // =========================
-app.get("/admin/registros", (req, res) => {
+app.get("/admin/registros", validarAdmin, (req, res) => {
 
   const { edificio_id, cedula } = req.query;
 
@@ -197,9 +188,9 @@ app.get("/admin/registros", (req, res) => {
 });
 
 // =========================
-// EDIFICIOS
+// EDIFICIOS (PROTEGIDO)
 // =========================
-app.get("/admin/edificios", (req, res) => {
+app.get("/admin/edificios", validarAdmin, (req, res) => {
   db.query("SELECT * FROM edificios", (err, data) => {
     if (err) return res.status(500).json(err);
     res.json(data);
@@ -207,9 +198,9 @@ app.get("/admin/edificios", (req, res) => {
 });
 
 // =========================
-// AGREGAR EDIFICIO
+// AGREGAR EDIFICIO (PROTEGIDO)
 // =========================
-app.post("/admin/agregar-edificio", (req, res) => {
+app.post("/admin/agregar-edificio", validarAdmin, (req, res) => {
 
   const { nombre } = req.body;
 
@@ -237,9 +228,9 @@ app.post("/admin/agregar-edificio", (req, res) => {
 });
 
 // =========================
-// CREAR USUARIO
+// CREAR USUARIO (PROTEGIDO)
 // =========================
-app.post("/admin/crear-usuario", (req, res) => {
+app.post("/admin/crear-usuario", validarAdmin, (req, res) => {
 
   let { nombre, cedula, rol_id, edificios } = req.body;
 
@@ -319,9 +310,9 @@ app.post("/admin/crear-usuario", (req, res) => {
 });
 
 // =========================
-// EXCEL
+// EXCEL (PROTEGIDO)
 // =========================
-app.get("/admin/exportar-excel-mensual", (req, res) => {
+app.get("/admin/exportar-excel-mensual", validarAdmin, (req, res) => {
 
   const mes = req.query.mes;
 

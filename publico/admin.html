@@ -6,7 +6,6 @@
 <title>Admin</title>
 
 <style>
-
 /* ===== RESET ===== */
 * {
   margin: 0;
@@ -22,6 +21,42 @@ body {
   padding: 20px;
 }
 
+/* ===== LOGIN OVERLAY ===== */
+#loginBox {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+.login-card {
+  background: white;
+  padding: 30px;
+  border-radius: 15px;
+  text-align: center;
+  width: 300px;
+}
+
+.login-card input {
+  width: 100%;
+  padding: 10px;
+  margin: 10px 0;
+}
+
+.login-card button {
+  width: 100%;
+  padding: 10px;
+  background: #1f7a63;
+  color: white;
+  border: none;
+}
+
 /* ===== CONTENEDOR ===== */
 .container {
   background: rgba(255,255,255,0.95);
@@ -30,6 +65,7 @@ body {
   max-width: 1100px;
   margin: auto;
   box-shadow: 0px 10px 30px rgba(0,0,0,0.3);
+  display: none; /* 🔥 oculto hasta login */
 }
 
 /* ===== TITULO ===== */
@@ -64,10 +100,6 @@ button {
   cursor: pointer;
 }
 
-button:hover {
-  transform: scale(1.05);
-}
-
 /* ===== TABLA ===== */
 table {
   width: 100%;
@@ -93,32 +125,23 @@ td {
 /* ===== MODAL ===== */
 #formulario {
   display: none;
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background: white;
-  padding: 20px;
-  border-radius: 15px;
-  width: 320px;
-  box-shadow: 0px 10px 30px rgba(0,0,0,0.4);
-  z-index: 999;
 }
-
-#formulario input,
-#formulario select {
-  width: 100%;
-  margin: 5px 0;
-  padding: 10px;
-  border-radius: 10px;
-  border: 1px solid #ccc;
-}
-
 </style>
 </head>
 
 <body>
 
+<!-- 🔐 LOGIN -->
+<div id="loginBox">
+  <div class="login-card">
+    <h3>🔐 Acceso Admin</h3>
+    <input type="password" id="pass" placeholder="Contraseña">
+    <button onclick="login()">Ingresar</button>
+    <p id="msg"></p>
+  </div>
+</div>
+
+<!-- ADMIN -->
 <div class="container">
 
 <h1>Panel Admin</h1>
@@ -155,149 +178,67 @@ td {
 
 </div>
 
-<!-- FORM -->
-<div id="formulario">
-
-<h3>Agregar Persona</h3>
-
-<input id="nombre" placeholder="Nombre">
-<input id="cedulaNuevo" placeholder="Cédula">
-
-<select id="rol">
-<option value="1">Admin</option>
-<option value="2">Vigilancia</option>
-<option value="3">Servicios</option>
-<option value="4">Todero</option>
-</select>
-
-<select id="edificioNuevo" multiple></select>
-
-<button onclick="guardarPersona()">Guardar</button>
-<button onclick="cerrarFormulario()">Cerrar</button>
-
-</div>
-
 <script>
 
-const auth = localStorage.getItem("auth");
+const PASSWORD = "Habitat2026";
+const EXPIRATION_TIME = 4 * 60 * 60 * 1000; // 4 horas
 
-// 🔐 BLOQUEO FRONT
-if (!auth) {
-  location.href = "/login.html";
+// ======================
+// LOGIN
+// ======================
+function login(){
+
+  const pass = document.getElementById("pass").value;
+
+  if(pass !== PASSWORD){
+    document.getElementById("msg").innerText = "❌ Incorrecto";
+    return;
+  }
+
+  const now = Date.now();
+
+  localStorage.setItem("auth", pass);
+  localStorage.setItem("auth_time", now);
+
+  showAdmin();
 }
 
 // ======================
-// 🔥 FETCH CON AUTH (IMPORTANTE)
+// VALIDAR SESIÓN
 // ======================
-function headersAuth(){
-  return {
-    "Content-Type": "application/json",
-    "Authorization": auth
-  };
+function checkAuth(){
+
+  const auth = localStorage.getItem("auth");
+  const time = localStorage.getItem("auth_time");
+
+  if(!auth || !time){
+    return false;
+  }
+
+  if(Date.now() - parseInt(time) > EXPIRATION_TIME){
+    localStorage.removeItem("auth");
+    localStorage.removeItem("auth_time");
+    return false;
+  }
+
+  return true;
 }
 
 // ======================
-// CARGAR EDIFICIOS
+// MOSTRAR ADMIN
 // ======================
-async function loadEdificios(){
-  const res = await fetch("/admin/edificios", {
-    headers: { "Authorization": auth }
-  });
+function showAdmin(){
 
-  const data = await res.json();
-
-  const sel = document.getElementById("edificio");
-  sel.innerHTML = "<option value=''>Todos</option>";
-
-  data.forEach(e=>{
-    sel.innerHTML += `<option value="${e.id}">${e.nombre}</option>`;
-  });
-}
-
-// ======================
-// REGISTROS
-// ======================
-async function cargar(){
-
-  let e = document.getElementById("edificio").value;
-  let c = document.getElementById("cedula").value;
-
-  let url = "/admin/registros?";
-
-  if(e) url += "edificio_id="+e+"&";
-  if(c) url += "cedula="+c;
-
-  const res = await fetch(url, {
-    headers: { "Authorization": auth }
-  });
-
-  const data = await res.json();
-
-  const t = document.getElementById("tabla");
-  t.innerHTML = "";
-
-  data.forEach(r=>{
-    const fecha = new Date(r.fecha_hora).toLocaleString("es-CO");
-
-    t.innerHTML += `
-      <tr>
-        <td>${r.id}</td>
-        <td>${r.nombre}</td>
-        <td>${r.cedula}</td>
-        <td>${r.edificio_nombre || r.edificio}</td>
-        <td>${r.rol}</td>
-        <td>${r.tipo_registro}</td>
-        <td>${fecha}</td>
-      </tr>
-    `;
-  });
-}
-
-// ======================
-// GUARDAR PERSONA
-// ======================
-async function guardarPersona(){
-
-  const nombre = document.getElementById("nombre").value;
-  const cedula = document.getElementById("cedulaNuevo").value;
-  const rol_id = document.getElementById("rol").value;
-
-  const edificios = Array.from(
-    document.getElementById("edificioNuevo").selectedOptions
-  ).map(o => o.value);
-
-  const res = await fetch("/admin/crear-usuario", {
-    method:"POST",
-    headers: headersAuth(),
-    body: JSON.stringify({ nombre, cedula, rol_id, edificios })
-  });
-
-  const data = await res.json();
-  alert(data.mensaje);
-}
-
-// ======================
-// EDIFICIOS
-// ======================
-async function guardarEdificio(){
-
-  const nombre = document.getElementById("nombreEdificio").value;
-
-  const res = await fetch("/admin/agregar-edificio", {
-    method:"POST",
-    headers: headersAuth(),
-    body: JSON.stringify({ nombre })
-  });
-
-  const data = await res.json();
-  alert(data.mensaje);
+  document.getElementById("loginBox").style.display = "none";
+  document.querySelector(".container").style.display = "block";
 }
 
 // ======================
 // INIT
 // ======================
-loadEdificios();
-cargar();
+if(checkAuth()){
+  showAdmin();
+}
 
 </script>
 
