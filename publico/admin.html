@@ -6,6 +6,7 @@
 <title>Admin</title>
 
 <style>
+
 /* ===== RESET ===== */
 * {
   margin: 0;
@@ -21,10 +22,13 @@ body {
   padding: 20px;
 }
 
-/* ===== LOGIN ===== */
+/* ===== LOGIN OVERLAY ===== */
 #loginBox {
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
   background: rgba(0,0,0,0.6);
   display: flex;
   justify-content: center;
@@ -36,8 +40,8 @@ body {
   background: white;
   padding: 30px;
   border-radius: 15px;
-  width: 300px;
   text-align: center;
+  width: 300px;
 }
 
 .login-card input {
@@ -52,7 +56,6 @@ body {
   background: #1f7a63;
   color: white;
   border: none;
-  cursor: pointer;
 }
 
 /* ===== CONTENEDOR ===== */
@@ -63,7 +66,43 @@ body {
   max-width: 1100px;
   margin: auto;
   box-shadow: 0px 10px 30px rgba(0,0,0,0.3);
-  display: none;
+  display: none; /* 🔐 OCULTO HASTA LOGIN */
+}
+
+/* ===== TITULO ===== */
+h1 {
+  text-align: center;
+  color: #0f3d2e;
+  margin-bottom: 20px;
+}
+
+/* ===== FILTROS ===== */
+.filters {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 15px;
+}
+
+select, input {
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid #ccc;
+  flex: 1;
+}
+
+/* ===== BOTONES (TU DISEÑO ORIGINAL) ===== */
+button {
+  padding: 10px 15px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #1f7a63, #38b48b);
+  color: white;
+  cursor: pointer;
+}
+
+button:hover {
+  transform: scale(1.05);
 }
 
 /* ===== TABLA ===== */
@@ -72,6 +111,8 @@ table {
   border-collapse: collapse;
   margin-top: 10px;
   background: white;
+  border-radius: 10px;
+  overflow: hidden;
 }
 
 th {
@@ -85,15 +126,21 @@ td {
   border-bottom: 1px solid #eee;
   text-align: center;
 }
+
+/* ===== MODAL ===== */
+#formulario {
+  display: none;
+}
+
 </style>
 </head>
 
 <body>
 
-<!-- LOGIN -->
+<!-- 🔐 LOGIN -->
 <div id="loginBox">
   <div class="login-card">
-    <h3>🔐 Admin</h3>
+    <h3>🔐 Acceso Admin</h3>
     <input type="password" id="pass" placeholder="Contraseña">
     <button onclick="login()">Ingresar</button>
     <p id="msg"></p>
@@ -114,6 +161,9 @@ td {
 <button onclick="exportarExcel()">Excel</button>
 <button onclick="generarReporte()">Reporte</button>
 
+<button onclick="mostrarFormulario()">➕ Persona</button>
+<button onclick="mostrarFormEdificio()">🏢 Edificio</button>
+
 </div>
 
 <table>
@@ -128,6 +178,7 @@ td {
 <th>Fecha</th>
 </tr>
 </thead>
+
 <tbody id="tabla"></tbody>
 </table>
 
@@ -135,12 +186,13 @@ td {
 
 <script>
 
-const PASSWORD = "Habitat2026";
-const EXP_TIME = 4 * 60 * 60 * 1000; // 4 horas
+/* ======================
+   🔐 SEGURIDAD
+====================== */
 
-// ======================
-// LOGIN
-// ======================
+const PASSWORD = "Habitat2026";
+const EXPIRATION_TIME = 4 * 60 * 60 * 1000; // 4 horas
+
 function login(){
 
   const pass = document.getElementById("pass").value;
@@ -156,9 +208,6 @@ function login(){
   iniciarAdmin();
 }
 
-// ======================
-// VALIDAR SESIÓN
-// ======================
 function checkAuth(){
 
   const auth = localStorage.getItem("auth");
@@ -166,7 +215,7 @@ function checkAuth(){
 
   if(!auth || !time) return false;
 
-  if(Date.now() - parseInt(time) > EXP_TIME){
+  if(Date.now() - parseInt(time) > EXPIRATION_TIME){
     localStorage.clear();
     return false;
   }
@@ -174,22 +223,20 @@ function checkAuth(){
   return true;
 }
 
-// ======================
-// MOSTRAR ADMIN
-// ======================
 function iniciarAdmin(){
 
   document.getElementById("loginBox").style.display = "none";
   document.querySelector(".container").style.display = "block";
 
-  // 🔥 IMPORTANTE: AQUÍ SE ARREGLA TU ERROR
+  // 🔥 IMPORTANTE: NO TOCAR TU SISTEMA ORIGINAL
   loadEdificios();
   cargar();
 }
 
-// ======================
-// EDIFICIOS
-// ======================
+/* ======================
+   🔥 TU CÓDIGO ORIGINAL
+====================== */
+
 async function loadEdificios(){
 
   const res = await fetch("/admin/edificios", {
@@ -206,9 +253,6 @@ async function loadEdificios(){
   });
 }
 
-// ======================
-// TABLA
-// ======================
 async function cargar(){
 
   let e = document.getElementById("edificio").value;
@@ -245,9 +289,10 @@ async function cargar(){
   });
 }
 
-// ======================
-// INIT
-// ======================
+/* ======================
+   INIT
+====================== */
+
 if(checkAuth()){
   iniciarAdmin();
 }
