@@ -346,56 +346,65 @@ app.get("/admin/exportar-excel-mensual", validarAdmin, (req, res) => {
 });
 
 // =========================
-// 🔥 EDITAR USUARIO
+// ✏️ EDITAR USUARIO
 // =========================
 app.put("/admin/editar-usuario", validarAdmin, (req, res) => {
 
   const { id, nombre, cedula, rol_id } = req.body;
 
-  if (!id) return res.status(400).json({ mensaje: "ID requerido" });
+  if (!id) {
+    return res.status(400).json({ mensaje: "ID requerido" });
+  }
 
   db.query(
     "UPDATE usuarios SET nombre=?, cedula=?, rol_id=? WHERE id=?",
     [nombre, cedula, rol_id, id],
     (err) => {
 
-      if (err) return res.status(500).json({ mensaje: "Error editando ❌" });
+      if (err) return res.status(500).json({ mensaje: "Error actualizando ❌" });
 
       res.json({ mensaje: "Usuario actualizado ✅" });
     }
   );
 });
 
+
 // =========================
-// 🔥 ELIMINAR REGISTRO
+// 🗑️ ELIMINAR REGISTRO
 // =========================
 app.delete("/admin/eliminar-registro/:id", validarAdmin, (req, res) => {
 
-  const id = req.params.id;
+  const { id } = req.params;
 
-  db.query("DELETE FROM registros WHERE id=?", [id], (err) => {
+  db.query(
+    "DELETE FROM registros WHERE id=?",
+    [id],
+    (err) => {
 
-    if (err) return res.status(500).json({ mensaje: "Error eliminando ❌" });
+      if (err) return res.status(500).json({ mensaje: "Error eliminando ❌" });
 
-    res.json({ mensaje: "Registro eliminado 🗑️" });
-  });
+      res.json({ mensaje: "Registro eliminado ✅" });
+    }
+  );
 });
 
+
 // =========================
-// 🔥 DASHBOARD DATA
+// 📊 DASHBOARD
 // =========================
 app.get("/admin/dashboard", validarAdmin, (req, res) => {
 
-  db.query(`
-    SELECT edificio, COUNT(*) as total
-    FROM registros
-    GROUP BY edificio
-  `, (err, data) => {
+  db.query(
+    `SELECT edificio, COUNT(*) as total 
+     FROM registros 
+     GROUP BY edificio`,
+    (err, data) => {
 
-    if (err) return res.status(500).json(err);
+      if (err) return res.status(500).json(err);
 
-    res.json(data);
-  });
+      res.json(data);
+    }
+  );
 });
 
 // =========================
