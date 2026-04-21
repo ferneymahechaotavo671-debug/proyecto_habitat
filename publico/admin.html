@@ -205,11 +205,12 @@ tbody tr:nth-child(even) {
 <input id="cedula" placeholder="Cédula">
 
 <button onclick="cargar()">Filtrar</button>
-<button onclick="exportarExcel()">Excel</button>
-<button onclick="generarReporte()">Reporte</button>
+<button onclick="exportarExcel()" style="display:none;">Excel</button>
+<button onclick="generarReporte()" style="display:none;">Reporte</button>
 
-<button onclick="mostrarFormulario()">➕ Persona</button>
-<button onclick="mostrarFormEdificio()">🏢 Edificio</button>
+<button onclick="mostrarFormulario()" style="display:none;">➕ Persona</button>
+<button onclick="mostrarFormEdificio()" style="display:none;">🏢 Edificio</button>
+<button onclick="menuAdmin()">☰ Menú</button>
 
 </div>
 
@@ -276,9 +277,32 @@ function iniciarAdmin(){
   document.getElementById("loginBox").style.display = "none";
   document.querySelector(".container").style.display = "block";
 
-  // 🔥 IMPORTANTE NO TOCAR TU SISTEMA
   loadEdificios();
   cargar();
+  cargarEdificiosFormulario(); // 🔥 FIX
+}
+
+/* ======================
+   EDIFICIOS SELECT FORM
+====================== */
+
+async function cargarEdificiosFormulario(){
+
+  const res = await fetch("/admin/edificios", {
+    headers: { "Authorization": localStorage.getItem("auth") }
+  });
+
+  const data = await res.json();
+
+  const sel = document.getElementById("edificioNuevo");
+
+  if(!sel) return;
+
+  sel.innerHTML = "";
+
+  data.forEach(e=>{
+    sel.innerHTML += `<option value="${e.id}">${e.nombre}</option>`;
+  });
 }
 
 /* ======================
@@ -333,11 +357,65 @@ async function cargar(){
         <td>${r.tipo_registro}</td>
         <td>${fecha}</td>
         <td style="color:red;">
-      ${r.observacion || "-"}
-    </td>
+          ${r.observacion || "-"}
+        </td>
       </tr>
     `;
   });
+}
+
+/* ======================
+   BOTONES (FIX)
+====================== */
+
+// ➕ PERSONA
+function mostrarFormulario(){
+  document.getElementById("formulario").style.display = "block";
+}
+
+function cerrarFormulario(){
+  document.getElementById("formulario").style.display = "none";
+}
+
+// 🏢 EDIFICIO
+function mostrarFormEdificio(){
+
+  const nombre = prompt("Nombre del edificio");
+
+  if(!nombre) return;
+
+  fetch("/admin/agregar-edificio", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": localStorage.getItem("auth")
+    },
+    body: JSON.stringify({ nombre })
+  })
+  .then(res => res.json())
+  .then(data => {
+    alert(data.mensaje);
+    loadEdificios();
+    cargarEdificiosFormulario();
+  });
+}
+
+// 📊 EXCEL
+function exportarExcel(){
+
+  const mes = new Date().getMonth() + 1;
+
+  window.open(`/admin/exportar-excel-mensual?mes=${mes}`, "_blank");
+}
+
+// 📄 REPORTE
+function generarReporte(){
+
+  const mes = prompt("Ingresa el número del mes (1-12)");
+
+  if(!mes) return;
+
+  window.open(`/admin/exportar-excel-mensual?mes=${mes}`, "_blank");
 }
 
 /* ======================
@@ -346,6 +424,102 @@ async function cargar(){
 
 if(checkAuth()){
   iniciarAdmin();
+}
+
+// ======================
+// 🔥 MENÚ PRINCIPAL
+// ======================
+function menuAdmin(){
+
+  const opcion = prompt(`
+1. Crear Persona
+2. Crear Edificio
+3. Editar Usuario
+4. Eliminar Registro
+5. Dashboard
+6. Exportar Excel
+7. Reporte
+`);
+
+  switch(opcion){
+
+    case "1": mostrarFormulario(); break;
+    case "2": mostrarFormEdificio(); break;
+    case "3": editarUsuario(); break;
+    case "4": eliminarRegistro(); break;
+    case "5": dashboard(); break;
+    case "6": exportarExcel(); break;
+    case "7": generarReporte(); break;
+
+    default: alert("Opción inválida");
+  }
+}
+
+// ======================
+// ✏️ EDITAR USUARIO
+// ======================
+async function editarUsuario(){
+
+  const id = prompt("ID del usuario");
+  const nombre = prompt("Nuevo nombre");
+  const cedula = prompt("Nueva cédula");
+  const rol_id = prompt("Rol (1-4)");
+
+  if(!id) return;
+
+  const res = await fetch("/admin/editar-usuario", {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": localStorage.getItem("auth")
+    },
+    body: JSON.stringify({ id, nombre, cedula, rol_id })
+  });
+
+  const data = await res.json();
+  alert(data.mensaje);
+}
+
+// ======================
+// 🗑️ ELIMINAR REGISTRO
+// ======================
+async function eliminarRegistro(){
+
+  const id = prompt("ID del registro");
+
+  if(!id) return;
+
+  const res = await fetch(`/admin/eliminar-registro/${id}`, {
+    method: "DELETE",
+    headers: {
+      "Authorization": localStorage.getItem("auth")
+    }
+  });
+
+  const data = await res.json();
+
+  alert(data.mensaje);
+  cargar();
+}
+
+// ======================
+// 📊 DASHBOARD
+// ======================
+async function dashboard(){
+
+  const res = await fetch("/admin/dashboard", {
+    headers: { "Authorization": localStorage.getItem("auth") }
+  });
+
+  const data = await res.json();
+
+  let texto = "📊 REGISTROS POR EDIFICIO\n\n";
+
+  data.forEach(d=>{
+    texto += `${d.edificio}: ${d.total}\n`;
+  });
+
+  alert(texto);
 }
 
 </script>

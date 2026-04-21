@@ -346,6 +346,59 @@ app.get("/admin/exportar-excel-mensual", validarAdmin, (req, res) => {
 });
 
 // =========================
+// 🔥 EDITAR USUARIO
+// =========================
+app.put("/admin/editar-usuario", validarAdmin, (req, res) => {
+
+  const { id, nombre, cedula, rol_id } = req.body;
+
+  if (!id) return res.status(400).json({ mensaje: "ID requerido" });
+
+  db.query(
+    "UPDATE usuarios SET nombre=?, cedula=?, rol_id=? WHERE id=?",
+    [nombre, cedula, rol_id, id],
+    (err) => {
+
+      if (err) return res.status(500).json({ mensaje: "Error editando ❌" });
+
+      res.json({ mensaje: "Usuario actualizado ✅" });
+    }
+  );
+});
+
+// =========================
+// 🔥 ELIMINAR REGISTRO
+// =========================
+app.delete("/admin/eliminar-registro/:id", validarAdmin, (req, res) => {
+
+  const id = req.params.id;
+
+  db.query("DELETE FROM registros WHERE id=?", [id], (err) => {
+
+    if (err) return res.status(500).json({ mensaje: "Error eliminando ❌" });
+
+    res.json({ mensaje: "Registro eliminado 🗑️" });
+  });
+});
+
+// =========================
+// 🔥 DASHBOARD DATA
+// =========================
+app.get("/admin/dashboard", validarAdmin, (req, res) => {
+
+  db.query(`
+    SELECT edificio, COUNT(*) as total
+    FROM registros
+    GROUP BY edificio
+  `, (err, data) => {
+
+    if (err) return res.status(500).json(err);
+
+    res.json(data);
+  });
+});
+
+// =========================
 // SERVER
 // =========================
 app.listen(PORT, () => {
