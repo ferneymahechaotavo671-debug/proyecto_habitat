@@ -219,6 +219,38 @@ tbody tr:nth-child(even) {
   margin: 6px 0;
 }
 
+#menuBox{
+  position: fixed;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
+  background: rgba(0,0,0,0.6);
+  display:none;
+  justify-content:center;
+  align-items:center;
+  z-index:9999;
+}
+
+.menu-card{
+  background: white;
+  padding: 25px;
+  border-radius: 20px;
+  width: 320px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+  text-align:center;
+}
+
+.menu-card h3{
+  margin-bottom:15px;
+  color:#1f7a63;
+}
+
+.menu-card button{
+  width:100%;
+  margin:6px 0;
+}
+
 </style>
 </head>
 
@@ -404,6 +436,27 @@ async function cargar(){
   });
 }
 
+async function generarReporte(){
+
+  const mes = prompt("Mes (1-12)");
+  if(!mes) return;
+
+  const res = await fetch(`/admin/exportar-excel-mensual?mes=${mes}`, {
+    headers: {
+      "Authorization": localStorage.getItem("auth")
+    }
+  });
+
+  const blob = await res.blob();
+
+  const url = window.URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "reporte.xlsx";
+  a.click();
+}
+
 /* ======================
    BOTONES (FIX)
 ====================== */
@@ -570,6 +623,41 @@ function cerrarMenu(){
   document.getElementById("menuBox").classList.remove("show");
 }
 
+async function crearUsuario(){
+
+  const nombre = document.getElementById("nombreNuevo").value;
+  const cedula = document.getElementById("cedulaNueva").value;
+  const rol_id = document.getElementById("rolNuevo").value;
+  const edificio = document.getElementById("edificioNuevo").value;
+
+  const res = await fetch("/admin/crear-usuario", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": localStorage.getItem("auth")
+    },
+    body: JSON.stringify({
+      nombre,
+      cedula,
+      rol_id,
+      edificios: [edificio]
+    })
+  });
+
+  const data = await res.json();
+
+  alert(data.mensaje);
+  cerrarFormulario();
+}
+
+function menuAdmin(){
+  document.getElementById("menuBox").style.display = "flex";
+}
+
+function cerrarMenu(){
+  document.getElementById("menuBox").style.display = "none";
+}
+
 </script>
 
 <div id="menuBox">
@@ -586,6 +674,41 @@ function cerrarMenu(){
     <button onclick="generarReporte(); cerrarMenu()">📄 Reporte</button>
 
     <button onclick="cerrarMenu()" style="background:#d93025;">Cerrar</button>
+
+  </div>
+</div>
+
+<!-- MODAL PERSONA -->
+<div id="formulario" style="
+position: fixed;
+top:0;
+left:0;
+width:100%;
+height:100%;
+background: rgba(0,0,0,0.6);
+display:none;
+justify-content:center;
+align-items:center;
+z-index:9999;
+">
+
+  <div style="
+  background:white;
+  padding:25px;
+  border-radius:15px;
+  width:300px;
+  ">
+
+    <h3>Crear Usuario</h3>
+
+    <input id="nombreNuevo" placeholder="Nombre" style="width:100%;margin:5px 0;padding:10px;">
+    <input id="cedulaNueva" placeholder="Cédula" style="width:100%;margin:5px 0;padding:10px;">
+    <input id="rolNuevo" placeholder="Rol ID (1-4)" style="width:100%;margin:5px 0;padding:10px;">
+
+    <select id="edificioNuevo" style="width:100%;margin:5px 0;padding:10px;"></select>
+
+    <button onclick="crearUsuario()">Guardar</button>
+    <button onclick="cerrarFormulario()">Cerrar</button>
 
   </div>
 </div>
