@@ -88,60 +88,140 @@ app.post("/registro", (req, res) => {
     [codigoEdificio],
     (err, eds) => {
 
-      if (err) return res.status(500).json({ mensaje: "Error servidor ❌" });
-      if (eds.length === 0) return res.json({ mensaje: "QR inválido ❌" });
+      if (err) {
+        return res.status(500).json({ mensaje: "Error servidor ❌" });
+      }
+
+      if (eds.length === 0) {
+        return res.json({ mensaje: "QR inválido ❌" });
+      }
 
       const edificio = eds[0];
 
       db.query(
-        `SELECT u.id, u.nombre, u.cedula, r.nombre AS rol
+        `SELECT 
+            u.id,
+            u.nombre,
+            u.cedula,
+            r.nombre AS rol
          FROM usuarios u
          JOIN roles r ON u.rol_id = r.id
-         JOIN usuario_edificio ue ON ue.usuario_id = u.id
-         WHERE u.cedula = ? AND ue.edificio_id = ?`,
+         JOIN usuario_edificio ue 
+            ON ue.usuario_id = u.id
+         WHERE u.cedula = ?
+         AND ue.edificio_id = ?`,
         [cedula, edificio.id],
         (err, users) => {
 
-          if (err) return res.status(500).json({ mensaje: "Error servidor ❌" });
-          if (users.length === 0) return res.json({ mensaje: "No autorizado 🚫" });
+          if (err) {
+            return res.status(500).json({ mensaje: "Error servidor ❌" });
+          }
+
+          if (users.length === 0) {
+            return res.json({ mensaje: "No autorizado 🚫" });
+          }
 
           const user = users[0];
 
           db.query(
-            `SELECT * FROM registros
-             WHERE cedula = ? AND edificio_id = ?
-             ORDER BY fecha_hora DESC LIMIT 1`,
+            `SELECT *
+             FROM registros
+             WHERE cedula = ?
+             AND edificio_id = ?
+             ORDER BY fecha_hora DESC
+             LIMIT 1`,
             [cedula, edificio.id],
             (err, last) => {
 
-              if (err) return res.status(500).json({ mensaje: "Error servidor ❌" });
-
-              let tipo = "Entrada";
-
-              if (last.length > 0 && last[0].tipo_registro === "Entrada") {
-                tipo = "Salida";
+              if (err) {
+                return res.status(500).json({ mensaje: "Error servidor ❌" });
               }
 
+              let tipo = "Entrada";
+              let observacion = null;
+
+              if (last.length > 0) {
+
+                const ultimo = last[0];
+
+                // Fecha último registro
+                const fechaUltimo = new Date(ultimo.fecha_hora);
+
+                // Fecha actual
+                const ahora = new Date();
+
+                // Diferencia en horas
+                const diferenciaHoras =
+                  (ahora - fechaUltimo) / (1000 * 60 * 60);
+
+                // Si el último registro fue entrada
+                if (ultimo.tipo_registro === "Entrada") {
+
+                  // Si pasaron más de 12 horas
+                  if (diferenciaHoras >= 12) {
+
+                    observacion =
+                      `Salida no registrada (${Math.floor(diferenciaHoras)}h)`;
+
+                    // Actualizar registro anterior
+                    db.query(
+                      `UPDATE registros
+                       SET observacion = ?
+                       WHERE id = ?`,
+                      [
+                        observacion,
+                        ultimo.id
+                      ]
+                    );
+
+                    // Nueva entrada
+                    tipo = "Entrada";
+
+                  } else {
+
+                    // Registro normal
+                    tipo = "Salida";
+                  }
+                }
+              }
+
+              // Insertar nuevo registro
               db.query(
                 `INSERT INTO registros
-                (nombre, cedula, edificio, tipo_registro, edificio_id, rol) 
-                VALUES (?, ?, ?, ?, ?, ?)`,
+                (
+                  nombre,
+                  cedula,
+                  edificio,
+                  tipo_registro,
+                  edificio_id,
+                  rol,
+                  observacion
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?)`,
                 [
                   user.nombre,
                   cedula,
                   edificio.nombre,
                   tipo,
                   edificio.id,
-                  user.rol
+                  user.rol,
+                  observacion
                 ],
                 (err) => {
 
-                  if (err) return res.status(500).json({ mensaje: "Error registro ❌" });
+                  if (err) {
+                    console.log(err);
+
+                    return res.status(500).json({
+                      mensaje: "Error registro ❌"
+                    });
+                  }
 
                   res.json({
                     mensaje: `${tipo} registrada ✅`,
                     edificio: edificio.nombre,
-                    rol: user.rol
+                    rol: user.rol,
+                    observacion
                   });
                 }
               );
