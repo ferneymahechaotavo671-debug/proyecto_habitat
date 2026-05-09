@@ -3,7 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Admin</title>
+<title>Admin Pro</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
 *{margin:0;padding:0;box-sizing:border-box;font-family:Arial}
@@ -11,10 +13,7 @@
 body{
 background:linear-gradient(135deg,#0f3d2e,#1f7a63,#38b48b);
 min-height:100vh;
-display:flex;
-justify-content:center;
-align-items:flex-start;
-padding:30px;
+padding:20px;
 }
 
 #loginBox{
@@ -56,32 +55,29 @@ display:none;
 background:white;
 padding:20px;
 border-radius:15px;
-width:100%;
-max-width:1100px;
+max-width:1200px;
+margin:auto;
 }
 
-h1{text-align:center;margin-bottom:20px}
+h1{text-align:center;margin-bottom:10px}
 
 .filters{
 display:flex;
 gap:10px;
 flex-wrap:wrap;
-margin-bottom:15px;
+margin:10px 0;
 }
 
-select,input{
+select,input,button{
 padding:10px;
 border-radius:10px;
 border:1px solid #ddd;
-flex:1;
 }
 
 button{
-padding:10px;
 background:#1f7a63;
 color:white;
 border:none;
-border-radius:10px;
 cursor:pointer;
 }
 
@@ -116,19 +112,36 @@ align-items:center;
 background:white;
 padding:20px;
 border-radius:12px;
-width:320px;
+width:350px;
 }
 
-.card input, .card select{
-width:100%;
-margin:8px 0;
-padding:10px;
+.grid{
+display:grid;
+grid-template-columns:repeat(3,1fr);
+gap:10px;
+margin:15px 0;
 }
 
+.box{
+background:#0f3d2e;
+color:white;
+padding:15px;
+border-radius:10px;
+text-align:center;
+}
+
+.alerta{
+color:red;
+font-weight:bold;
+}
 </style>
 </head>
 
 <body>
+
+<div style="text-align:center;margin-bottom:10px;">
+  <img src="logo.png" width="100">
+</div>
 
 <!-- LOGIN -->
 <div id="loginBox">
@@ -142,13 +155,21 @@ padding:10px;
 <!-- PANEL -->
 <div class="container">
 
-<h1>Panel Admin</h1>
+<h1>Panel Admin PRO</h1>
+
+<div class="grid">
+<div class="box">Entradas hoy<br><span id="entradas">0</span></div>
+<div class="box">Salidas hoy<br><span id="salidas">0</span></div>
+<div class="box alerta">Alertas<br><span id="alertas">0</span></div>
+</div>
+
+<canvas id="chart"></canvas>
 
 <div class="filters">
 <select id="edificio"></select>
 <input id="cedula" placeholder="Cédula">
 <button onclick="cargar()">Filtrar</button>
-<button onclick="menu()">Menú</button>
+<button onclick="abrirDash()">Dashboard</button>
 </div>
 
 <table>
@@ -161,6 +182,7 @@ padding:10px;
 <th>Rol</th>
 <th>Tipo</th>
 <th>Fecha</th>
+<th>Obs</th>
 </tr>
 </thead>
 <tbody id="tabla"></tbody>
@@ -168,57 +190,13 @@ padding:10px;
 
 </div>
 
-<!-- MENU -->
-<div class="modal" id="menuBox">
+<!-- DASHBOARD -->
+<div class="modal" id="dashBox">
 <div class="card">
-<h3>Menú</h3>
-
-<button onclick="abrirUsuario()">Crear Usuario</button>
-<button onclick="abrirEdificio()">Crear Edificio</button>
-<button onclick="abrirPermisos()">Permisos</button>
-<button onclick="cerrar()">Cerrar</button>
-
-</div>
-</div>
-
-<!-- USUARIO -->
-<div class="modal" id="userBox">
-<div class="card">
-<h3>Usuario</h3>
-
-<input id="nombre" placeholder="Nombre">
-<input id="cedulaU" placeholder="Cédula">
-<input id="rol" placeholder="Rol ID">
-
-<button onclick="crearUsuario()">Guardar</button>
-<button onclick="cerrarUser()">Cerrar</button>
-</div>
-</div>
-
-<!-- EDIFICIO -->
-<div class="modal" id="edificioBox">
-<div class="card">
-<h3>Edificio</h3>
-
-<input id="nombreE" placeholder="Nombre">
-
-<button onclick="crearEdificio()">Guardar</button>
-<button onclick="cerrarE()">Cerrar</button>
-</div>
-</div>
-
-<!-- PERMISOS -->
-<div class="modal" id="permisoBox">
-<div class="card">
-<h3>Permisos</h3>
-
-<input id="cedulaP" placeholder="Cédula">
-<select id="edificioP"></select>
-
-<button onclick="asignar()">Dar</button>
-<button onclick="quitar()">Quitar</button>
-<button onclick="cerrarP()">Cerrar</button>
-
+<h3>Dashboard</h3>
+<p>Resumen en tiempo real</p>
+<canvas id="dashChart"></canvas>
+<button onclick="cerrarDash()">Cerrar</button>
 </div>
 </div>
 
@@ -230,13 +208,12 @@ const PASS="Habitat2026";
 function login(){
 if(pass.value!==PASS) return alert("Error");
 
-localStorage.setItem("auth",PASS);
-
 loginBox.style.display="none";
 document.querySelector(".container").style.display="block";
 
 loadEdificios();
 cargar();
+setInterval(cargar,15000);
 }
 
 /* EDIFICIOS */
@@ -246,26 +223,16 @@ const r=await fetch("/admin/edificios");
 const d=await r.json();
 
 edificio.innerHTML="";
-edificioP.innerHTML="";
 
 d.forEach(e=>{
 edificio.innerHTML+=`<option value="${e.id}">${e.nombre}</option>`;
-edificioP.innerHTML+=`<option value="${e.id}">${e.nombre}</option>`;
 });
 }
 
-/* REGISTROS */
+/* CARGAR */
 async function cargar(){
 
-let e=edificio.value;
-let c=cedula.value;
-
-let url="/admin/registros?";
-
-if(e) url+="edificio_id="+e+"&";
-if(c) url+="cedula="+c;
-
-const r=await fetch(url,{
+const r=await fetch("/admin/registros",{
 headers:{Authorization:PASS}
 });
 
@@ -273,7 +240,14 @@ const d=await r.json();
 
 tabla.innerHTML="";
 
+let ent=0, sal=0, alert=0;
+
 d.forEach(r=>{
+
+if(r.tipo_registro==="Entrada") ent++;
+if(r.tipo_registro==="Salida") sal++;
+if(r.observacion) alert++;
+
 tabla.innerHTML+=`
 <tr>
 <td>${r.id}</td>
@@ -283,95 +257,64 @@ tabla.innerHTML+=`
 <td>${r.rol}</td>
 <td>${r.tipo_registro}</td>
 <td>${r.fecha_hora}</td>
+<td style="color:red">${r.observacion||"-"}</td>
 </tr>`;
 });
+
+entradas.innerText=ent;
+salidas.innerText=sal;
+alertas.innerText=alert;
+
+updateChart(ent,sal,alert);
 }
 
-/* MODALES */
-function menu(){menuBox.style.display="flex"}
-function cerrar(){menuBox.style.display="none"}
+/* CHART PRINCIPAL */
+let chart;
 
-function abrirUsuario(){userBox.style.display="flex"}
-function cerrarUser(){userBox.style.display="none"}
+function updateChart(e,s,a){
 
-function abrirEdificio(){edificioBox.style.display="flex"}
-function cerrarE(){edificioBox.style.display="none"}
+const ctx=document.getElementById("chart");
 
-function abrirPermisos(){permisoBox.style.display="flex"}
-function cerrarP(){permisoBox.style.display="none"}
+if(chart) chart.destroy();
 
-/* USUARIO */
-async function crearUsuario(){
-
-await fetch("/admin/crear-usuario",{
-method:"POST",
-headers:{
-"Content-Type":"application/json",
-Authorization:PASS
-},
-body:JSON.stringify({
-nombre:nombre.value,
-cedula:cedulaU.value,
-rol_id:rol.value
-})
+chart=new Chart(ctx,{
+type:"bar",
+data:{
+labels:["Entradas","Salidas","Alertas"],
+datasets:[{
+data:[e,s,a],
+backgroundColor:["#1f7a63","#38b48b","red"]
+}]
+}
 });
-
-alert("OK");
-cerrarUser();
 }
 
-/* EDIFICIO */
-async function crearEdificio(){
+/* DASHBOARD */
+let dash;
 
-await fetch("/admin/agregar-edificio",{
-method:"POST",
-headers:{
-"Content-Type":"application/json",
-Authorization:PASS
-},
-body:JSON.stringify({
-nombre:nombreE.value
-})
+function abrirDash(){
+dashBox.style.display="flex";
+
+const ctx=document.getElementById("dashChart");
+
+dash=new Chart(ctx,{
+type:"pie",
+data:{
+labels:["Entradas","Salidas","Alertas"],
+datasets:[{
+data:[
+Number(entradas.innerText),
+Number(salidas.innerText),
+Number(alertas.innerText)
+]
+}]
+}
 });
-
-alert("OK");
-cerrarE();
-loadEdificios();
 }
 
-/* PERMISOS */
-async function asignar(){
-
-await fetch("/admin/asignar-edificio",{
-method:"POST",
-headers:{
-"Content-Type":"application/json",
-Authorization:PASS
-},
-body:JSON.stringify({
-cedula:cedulaP.value,
-edificio_id:edificioP.value
-})
-});
-
-alert("OK");
-}
-
-async function quitar(){
-
-await fetch("/admin/quitar-permiso",{
-method:"POST",
-headers:{
-"Content-Type":"application/json",
-Authorization:PASS
-},
-body:JSON.stringify({
-cedula:cedulaP.value,
-edificio_id:edificioP.value
-})
-});
-
-alert("OK");
+function cerrarDash(){
+dashBox.style.display="none";
+if(dash) dash.destroy();
 }
 
 </script>

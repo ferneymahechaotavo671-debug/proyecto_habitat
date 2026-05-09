@@ -70,16 +70,20 @@ app.post("/login", (req, res) => {
 app.get("/admin/edificios", (req, res) => {
   db.query("SELECT * FROM edificios", (err, data) => {
     if (err) return res.status(500).json(err);
+
+    // ORDENADOS
+    data.sort((a, b) => a.nombre.localeCompare(b.nombre));
+
     res.json(data);
   });
 });
 
 // =========================
-// REGISTROS (FALTABA)
+// REGISTROS + OBSERVACIÓN 12H (MEJORADO)
 // =========================
 app.get("/admin/registros", validarAdmin, (req, res) => {
-  let sql = "SELECT * FROM registros WHERE 1=1";
 
+  let sql = "SELECT * FROM registros WHERE 1=1";
   const params = [];
 
   if (req.query.edificio_id) {
@@ -96,9 +100,55 @@ app.get("/admin/registros", validarAdmin, (req, res) => {
 
   db.query(sql, params, (err, data) => {
     if (err) return res.status(500).json(err);
-    res.json(data);
+
+    const ahora = new Date();
+
+    const procesado = data.map(r => {
+
+      let obs = "";
+
+      if (r.tipo_registro === "Entrada") {
+
+        const entrada = new Date(r.fecha_hora);
+        const diffHoras = (ahora - entrada) / (1000 * 60 * 60);
+
+        if (diffHoras > 12) {
+          obs = "🚨 Salida no registrada";
+        }
+      }
+
+      return {
+        ...r,
+        observacion: obs
+      };
+    });
+
+    res.json(procesado);
   });
 });
+
+// =========================
+// AUTO OBSERVACIÓN EN BD (CRON)
+// =========================
+setInterval(() => {
+
+  const sql = `
+    UPDATE registros r1
+    LEFT JOIN registros r2 
+      ON r1.cedula = r2.cedula 
+      AND r1.edificio_id = r2.edificio_id
+      AND r2.id > r1.id
+    SET r1.observacion = '🚨 Salida no registrada'
+    WHERE r1.tipo_registro = 'Entrada'
+      AND r2.id IS NULL
+      AND TIMESTAMPDIFF(HOUR, r1.fecha_hora, NOW()) > 12
+  `;
+
+  db.query(sql, (err) => {
+    if (err) console.log("Error auto obs:", err.message);
+  });
+
+}, 10 * 60 * 1000);
 
 // =========================
 // REGISTRO QR
@@ -124,9 +174,10 @@ app.post("/registro", (req, res) => {
     if (!edificio) return res.json({ mensaje: "QR inválido ❌" });
 
     db.query(
-      `SELECT u.id, u.nombre, r.nombre AS rol
+      `SELECT u.id, u.nombre, 
+              IFNULL(r.nombre,'usuario') AS rol
        FROM usuarios u
-       JOIN roles r ON u.rol_id = r.id
+       LEFT JOIN roles r ON u.rol_id = r.id
        WHERE u.cedula=?`,
       [cedula],
       (err, users) => {
@@ -198,77 +249,63 @@ app.post("/registro", (req, res) => {
 });
 
 // =========================
-// CREAR USUARIO
+// CRUD USUARIOS
 // =========================
 app.post("/admin/crear-usuario", validarAdmin, (req, res) => {
-
-  const { nombre, cedula, rol_id } = req.body;
-
   db.query(
     "INSERT INTO usuarios (nombre, cedula, rol_id) VALUES (?,?,?)",
-    [nombre, cedula, rol_id],
-    (err) => {
-      if (err) return res.status(500).json(err);
-      res.json({ ok: true });
-    }
+    [req.body.nombre, req.body.cedula, req.body.rol_id],
+    () => res.json({ ok: true })
   );
 });
 
-// =========================
-// ASIGNAR PERMISO
-// =========================
-app.post("/admin/asignar-edificio", validarAdmin, (req, res) => {
-
-  const { cedula, edificio_id } = req.body;
-
+app.post("/admin/editar-usuario", validarAdmin, (req, res) => {
   db.query(
-    "INSERT INTO dispositivos (cedula, device_id, edificio_id) VALUES (?, '', ?)",
-    [cedula, edificio_id],
-    (err) => {
-      if (err) return res.status(500).json(err);
-      res.json({ ok: true });
-    }
+    "UPDATE usuarios SET nombre=?, cedula=?, rol_id=? WHERE id=?",
+    [req.body.nombre, req.body.cedula, req.body.rol_id, req.body.id],
+    () => res.json({ ok: true })
   );
 });
 
 // =========================
-// QUITAR PERMISO
-// =========================
-app.post("/admin/quitar-permiso", validarAdmin, (req, res) => {
-
-  const { cedula, edificio_id } = req.body;
-
-  db.query(
-    "DELETE FROM dispositivos WHERE cedula=? AND edificio_id=?",
-    [cedula, edificio_id],
-    (err) => {
-      if (err) return res.status(500).json(err);
-      res.json({ ok: true });
-    }
-  );
-});
-
-// =========================
-// AGREGAR EDIFICIO
+// CRUD EDIFICIOS
 // =========================
 app.post("/admin/agregar-edificio", validarAdmin, (req, res) => {
-
-  const nombre = req.body.nombre;
-  const codigo_qr = normalizar(nombre);
-
   db.query(
     "INSERT INTO edificios (nombre, codigo_qr) VALUES (?,?)",
-    [nombre, codigo_qr],
-    (err) => {
-      if (err) return res.status(500).json(err);
-      res.json({ ok: true });
-    }
+    [req.body.nombre, normalizar(req.body.nombre)],
+    () => res.json({ ok: true })
+  );
+});
+
+app.post("/admin/editar-edificio", validarAdmin, (req, res) => {
+  db.query(
+    "UPDATE edificios SET nombre=?, codigo_qr=? WHERE id=?",
+    [req.body.nombre, normalizar(req.body.nombre), req.body.id],
+    () => res.json({ ok: true })
+  );
+});
+
+// =========================
+// PERMISOS
+// =========================
+app.post("/admin/asignar-edificio", validarAdmin, (req, res) => {
+  db.query(
+    "INSERT INTO dispositivos (cedula, device_id, edificio_id) VALUES (?,?,?)",
+    [req.body.cedula, "", req.body.edificio_id],
+    () => res.json({ ok: true })
+  );
+});
+
+app.post("/admin/quitar-permiso", validarAdmin, (req, res) => {
+  db.query(
+    "DELETE FROM dispositivos WHERE cedula=? AND edificio_id=?",
+    [req.body.cedula, req.body.edificio_id],
+    () => res.json({ ok: true })
   );
 });
 
 // =========================
 // SERVER
 // =========================
-app.listen(PORT, () => {
-  console.log("Servidor corriendo en", PORT);
-});
+app.listen(PORT, () => console.log("Servidor corriendo en", PORT));

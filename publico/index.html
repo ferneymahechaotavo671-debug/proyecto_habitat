@@ -3,11 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Registro QR</title>
+<title>Registro QR PRO</title>
 
 <script src="https://unpkg.com/html5-qrcode"></script>
 
 <style>
+
 body{
 font-family:Arial;
 background:linear-gradient(135deg,#0f3d2e,#1f7a63,#38b48b);
@@ -22,9 +23,13 @@ background:white;
 padding:25px;
 border-radius:15px;
 width:90%;
-max-width:400px;
+max-width:420px;
 text-align:center;
+box-shadow:0 10px 25px rgba(0,0,0,0.2);
 }
+
+h2{color:#0f3d2e}
+h3{color:#1f7a63}
 
 input,button{
 width:100%;
@@ -32,13 +37,32 @@ padding:12px;
 margin-top:10px;
 border-radius:10px;
 border:1px solid #ddd;
+font-size:16px;
 }
 
 button{
 background:#1f7a63;
 color:white;
 border:none;
+cursor:pointer;
 }
+
+#estado{
+margin-top:10px;
+padding:10px;
+border-radius:10px;
+font-weight:bold;
+}
+
+.ok{background:#e6fff0;color:#1f7a63}
+.error{background:#ffe6e6;color:red}
+
+#reader{
+margin-top:15px;
+border-radius:12px;
+overflow:hidden;
+}
+
 </style>
 </head>
 
@@ -50,12 +74,14 @@ border:none;
 
 <h3 id="edificio">Validando...</h3>
 
+<div id="estado">Esperando validación...</div>
+
 <form id="form">
 <input id="cedula" placeholder="Cédula" required>
-<button>Registrar</button>
+<button>Registrar entrada/salida</button>
 </form>
 
-<button onclick="camara()">Escanear QR</button>
+<button onclick="camara()">📷 Escanear QR</button>
 
 <div id="reader"></div>
 
@@ -63,44 +89,88 @@ border:none;
 
 <script>
 
+// =========================
+// QR
+// =========================
 const params=new URLSearchParams(location.search);
 let codigo=params.get("edificio");
 
+// =========================
+// LIMPIAR QR
+// =========================
 function limpiar(t){
 return (t||"")
 .toLowerCase()
+.trim()
 .replace(/\s+/g,"")
 .replace(/[^a-z0-9]/g,"");
 }
 
-/* EDIFICIO */
+// =========================
+// DEVICE ID SEGURO
+// =========================
+function device(){
+let id=localStorage.getItem("device_id");
+
+if(!id){
+id=crypto.randomUUID();
+localStorage.setItem("device_id",id);
+}
+
+return id;
+}
+
+// =========================
+// CARGAR EDIFICIO
+// =========================
 async function cargar(){
 
-if(!codigo) return;
+if(!codigo){
+estado("QR no detectado ❌","error");
+edificio.innerText="Sin QR";
+return;
+}
+
+try{
 
 const r=await fetch("/admin/edificios");
 const d=await r.json();
 
 const ed=d.find(e=>limpiar(e.codigo_qr)==limpiar(codigo));
 
-edificio.innerText=ed?ed.nombre:"Inválido ❌";
+if(ed){
+edificio.innerText=ed.nombre;
+estado("Edificio válido ✔","ok");
+}else{
+edificio.innerText="Inválido ❌";
+estado("QR no pertenece a ningún edificio","error");
+}
+
+}catch(e){
+estado("Error de conexión","error");
+}
 }
 
 cargar();
 
-/* DEVICE */
-function device(){
-let id=localStorage.getItem("id");
-if(!id){
-id=crypto.randomUUID();
-localStorage.setItem("id",id);
-}
-return id;
+// =========================
+// MENSAJE UI
+// =========================
+function estado(msg,type){
+
+const box=document.getElementById("estado");
+
+box.innerText=msg;
+box.className=type;
 }
 
-/* REGISTRO */
+// =========================
+// REGISTRO
+// =========================
 form.onsubmit=async(e)=>{
 e.preventDefault();
+
+try{
 
 const r=await fetch("/registro",{
 method:"POST",
@@ -113,29 +183,55 @@ deviceId:device()
 });
 
 const d=await r.json();
+
 alert(d.mensaje);
+
+}catch(err){
+alert("Error de red ❌");
+}
+
 };
 
-/* QR */
+// =========================
+// QR SCANNER MEJORADO
+// =========================
 function camara(){
 
 const scan=new Html5Qrcode("reader");
 
 Html5Qrcode.getCameras().then(devs=>{
 
-scan.start(devs[0].id,{fps:10,qrbox:250},
-(text)=>{
+if(!devs || devs.length===0){
+alert("No hay cámara");
+return;
+}
 
-scan.stop();
+// usar cámara trasera si existe
+let back=devs.find(d=>
+(d.label||"").toLowerCase().includes("back") ||
+(d.label||"").toLowerCase().includes("rear") ||
+(d.label||"").toLowerCase().includes("environment")
+);
+
+let cam=back?back.id:devs[0].id;
+
+scan.start(cam,{fps:10,qrbox:250},
+
+async(text)=>{
+
+try{await scan.stop();}catch(e){}
 
 let clean=text
 .replace(/.*edificio=/,"")
+.toLowerCase()
 .replace(/[^a-z0-9]/g,"");
 
 location.href="/?edificio="+clean;
 
 });
 
+}).catch(()=>{
+alert("Error cámara ❌");
 });
 
 }
