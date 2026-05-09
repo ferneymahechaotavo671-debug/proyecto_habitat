@@ -12,6 +12,7 @@
 <script src="https://unpkg.com/html5-qrcode"></script>
 
 <style>
+
 *{margin:0;padding:0;box-sizing:border-box}
 
 body{
@@ -24,13 +25,17 @@ align-items:center;
 }
 
 .container{
-background:rgba(255,255,255,0.93);
-padding:35px;
-border-radius:22px;
-width:90%;
+background:rgba(255,255,255,0.95);
+padding:30px;
+border-radius:20px;
+width:92%;
 max-width:420px;
 text-align:center;
+box-shadow:0 10px 30px rgba(0,0,0,.25);
 }
+
+h2{color:#0f3d2e;margin-bottom:10px}
+h3{color:#1f7a63;margin-bottom:15px}
 
 input{
 padding:13px;
@@ -38,6 +43,7 @@ width:100%;
 margin-top:10px;
 border-radius:12px;
 border:1px solid #ddd;
+font-size:16px;
 }
 
 button{
@@ -48,10 +54,13 @@ border:none;
 border-radius:12px;
 background:#1f7a63;
 color:white;
+font-size:16px;
 }
 
 #reader{
 margin-top:15px;
+border-radius:12px;
+overflow:hidden;
 }
 
 #overlayMensaje{
@@ -64,7 +73,7 @@ justify-content:center;
 align-items:center;
 opacity:0;
 pointer-events:none;
-transition:0.4s;
+transition:0.3s;
 }
 
 #overlayMensaje.show{
@@ -75,7 +84,8 @@ pointer-events:all;
 .mensaje-box{
 background:white;
 padding:30px;
-border-radius:20px;
+border-radius:15px;
+text-align:center;
 }
 
 </style>
@@ -85,7 +95,7 @@ border-radius:20px;
 
 <div class="container">
 
-  <img src="logo.png" width="100">
+  <img src="logo.png" width="90">
 
   <h2>Registro QR</h2>
 
@@ -108,145 +118,80 @@ border-radius:20px;
   </div>
 </div>
 
-<script src="https://unpkg.com/html5-qrcode"></script>
-
 <script>
 
 // =========================
-// 📌 PARAMS QR
+// QR PARAM
 // =========================
 const params = new URLSearchParams(window.location.search);
 const codigo = params.get("edificio");
 
-let modoHome = !codigo;
-
 // =========================
-// 🔐 DEVICE ID (ANTI-SUPLANTACIÓN BASE)
+// DEVICE ID (LISTO ANTI-SUPLANTACIÓN)
 // =========================
 function getDeviceId(){
   let id = localStorage.getItem("device_id");
-
   if(!id){
     id = crypto.randomUUID();
     localStorage.setItem("device_id", id);
   }
-
   return id;
 }
 
 // =========================
-// ⏱ CONTROL QR
+// TIEMPO QR
 // =========================
+const LIMITE = 20 * 60 * 1000;
+
+let inicio = localStorage.getItem("inicioQR");
+
+if(!inicio){
+  localStorage.setItem("inicioQR", Date.now());
+}
+
 function verificarTiempo(){
+  const start = Number(localStorage.getItem("inicioQR"));
 
-  const LIMITE = 20 * 60 * 1000;
-  const inicio = Number(localStorage.getItem("inicioQR"));
-
-  if(!inicio) return true;
-
-  if(Date.now() - inicio > LIMITE){
-
-    localStorage.removeItem("inicioQR");
-
-    document.body.innerHTML = `
-      <div style="text-align:center;font-family:Arial;">
-        <h2>⏰ QR expirado</h2>
-        <p>Vuelve a escanear el código</p>
-      </div>
-    `;
-
+  if(Date.now() - start > LIMITE){
+    document.body.innerHTML = "<h2>⏰ QR expirado</h2>";
     return false;
   }
-
   return true;
 }
 
-// activar solo si hay QR
-if(codigo){
-  if(!localStorage.getItem("inicioQR")){
-    localStorage.setItem("inicioQR", Date.now());
+if(codigo && !verificarTiempo()) throw new Error("expirado");
+
+// =========================
+// CARGAR EDIFICIO (SEGURO)
+// =========================
+async function cargarEdificio(){
+
+  if(!codigo) return;
+
+  try{
+
+    const res = await fetch("/admin/edificios", {
+      headers:{
+        "Authorization": localStorage.getItem("auth") || ""
+      }
+    });
+
+    const data = await res.json();
+
+    const ed = data.find(e => e.codigo_qr === codigo);
+
+    document.getElementById("edificio").innerText =
+      ed ? ed.nombre : "Edificio inválido";
+
+  }catch(e){
+    document.getElementById("edificio").innerText = "Error";
   }
-
-  if(!verificarTiempo()) throw new Error("QR expirado");
 }
 
-// =========================
-// 🏠 HOME MODE
-// =========================
-if(modoHome){
-
-  document.body.innerHTML = `
-    <div style="text-align:center;padding:30px;font-family:Arial;">
-      <h1>🏢 HÁBITAT</h1>
-
-      <button onclick="iniciarCamaraQR()" style="
-        padding:12px;
-        margin-top:20px;
-        background:#1f7a63;
-        color:white;
-        border:none;
-        border-radius:10px;
-        width:80%;
-      ">
-        📷 Escanear QR
-      </button>
-
-      <div id="reader" style="margin-top:20px;"></div>
-    </div>
-  `;
-
-  setTimeout(mostrarBotonInstalar, 300);
-}
+cargarEdificio();
 
 // =========================
-// 📲 PWA INSTALL BUTTON
-// =========================
-let deferredPrompt;
-
-function mostrarBotonInstalar(){
-
-  const btn = document.createElement("button");
-
-  btn.innerText = "📲 Instalar App";
-
-  Object.assign(btn.style, {
-    position: "fixed",
-    bottom: "20px",
-    right: "20px",
-    padding: "12px",
-    background: "#1f7a63",
-    color: "white",
-    border: "none",
-    borderRadius: "10px",
-    zIndex: 9999
-  });
-
-  document.body.appendChild(btn);
-
-  btn.onclick = async () => {
-
-    if(!deferredPrompt){
-      alert("Instalación no disponible");
-      return;
-    }
-
-    deferredPrompt.prompt();
-    await deferredPrompt.userChoice;
-
-    deferredPrompt = null;
-    btn.remove();
-  };
-}
-
-window.addEventListener("beforeinstallprompt", (e) => {
-  e.preventDefault();
-  deferredPrompt = e;
-
-  mostrarBotonInstalar();
-});
-
-// =========================
-// 📷 ESCÁNER QR REAL
+// CÁMARA (FORZAR TRASERA)
 // =========================
 function iniciarCamaraQR(){
 
@@ -254,7 +199,13 @@ function iniciarCamaraQR(){
 
   Html5Qrcode.getCameras().then(devices => {
 
-    const cam = devices[0].id;
+    let backCamera =
+      devices.find(d =>
+        d.label.toLowerCase().includes("back") ||
+        d.label.toLowerCase().includes("rear")
+      );
+
+    const cam = backCamera ? backCamera.id : devices[0].id;
 
     scanner.start(
       cam,
@@ -269,41 +220,74 @@ function iniciarCamaraQR(){
     );
 
   }).catch(err => {
-    alert("Error cámara ❌");
+    alert("No se pudo abrir cámara");
     console.error(err);
   });
 }
 
 // =========================
-// 🏢 CARGAR EDIFICIO
+// REGISTRO
 // =========================
-async function cargarEdificio(){
+document.getElementById("form").addEventListener("submit", async (e)=>{
 
-  if(!codigo) return;
+  e.preventDefault();
 
-  try {
+  const cedula = document.getElementById("cedula").value;
 
-    const res = await fetch("/admin/edificios", {
-      headers: {
-        "Authorization": localStorage.getItem("auth") || ""
-      }
-    });
+  const res = await fetch("/registro",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({
+      cedula,
+      codigoEdificio: codigo,
+      deviceId: getDeviceId()
+    })
+  });
 
-    const data = await res.json();
+  const data = await res.json();
 
-    const ed = data.find(e => e.codigo_qr === codigo);
+  document.getElementById("textoGrande").innerText = data.mensaje;
+  document.getElementById("overlayMensaje").classList.add("show");
 
-    const el = document.getElementById("edificio");
-    if(el){
-      el.innerText = ed ? ed.nombre : "Edificio inválido";
-    }
+  setTimeout(()=>{
+    document.getElementById("overlayMensaje").classList.remove("show");
+  },2500);
 
-  } catch (e) {
-    console.log("Error edificio", e);
-  }
-}
+});
 
-cargarEdificio();
+// =========================
+// PWA INSTALL BUTTON
+// =========================
+let deferredPrompt;
+
+window.addEventListener("beforeinstallprompt", (e)=>{
+  e.preventDefault();
+  deferredPrompt = e;
+
+  const btn = document.createElement("button");
+  btn.innerText = "📲 Instalar App";
+
+  Object.assign(btn.style,{
+    position:"fixed",
+    bottom:"20px",
+    right:"20px",
+    padding:"12px",
+    background:"#1f7a63",
+    color:"white",
+    border:"none",
+    borderRadius:"10px",
+    zIndex:9999
+  });
+
+  document.body.appendChild(btn);
+
+  btn.onclick = async ()=>{
+    deferredPrompt.prompt();
+    await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    btn.remove();
+  };
+});
 
 </script>
 
