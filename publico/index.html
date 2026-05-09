@@ -18,6 +18,7 @@ align-items:center;
 min-height:100vh;
 }
 
+/* CONTENEDOR */
 .container{
 background:white;
 padding:25px;
@@ -26,6 +27,9 @@ width:90%;
 max-width:420px;
 text-align:center;
 box-shadow:0 10px 25px rgba(0,0,0,0.2);
+
+/* 🔥 FIX IMPORTANTE */
+margin-top:80px;
 }
 
 h2{color:#0f3d2e}
@@ -63,11 +67,50 @@ border-radius:12px;
 overflow:hidden;
 }
 
+/* HEADER LOGO */
+.header{
+position:fixed;
+top:10px;
+left:0;
+width:100%;
+display:flex;
+justify-content:center;
+z-index:10;
+}
+
+.header-box{
+background:white;
+padding:10px 20px;
+border-radius:15px;
+display:flex;
+align-items:center;
+gap:10px;
+box-shadow:0 5px 15px rgba(0,0,0,0.2);
+}
+
+.header-box img{
+width:50px;
+}
+
+.header-box span{
+font-weight:bold;
+color:#0f3d2e;
+}
+
 </style>
 </head>
 
 <body>
 
+<!-- HEADER LOGO -->
+<div class="header">
+  <div class="header-box">
+    <img src="logo.png">
+    <span>Sistema de Registro QR</span>
+  </div>
+</div>
+
+<!-- CONTENEDOR -->
 <div class="container">
 
 <h2>Registro QR</h2>
@@ -90,151 +133,126 @@ overflow:hidden;
 <script>
 
 // =========================
-// QR
+// QR PARAM
 // =========================
-const params=new URLSearchParams(location.search);
-let codigo=params.get("edificio");
+const params = new URLSearchParams(location.search);
 
-// =========================
-// LIMPIAR QR
-// =========================
-function limpiar(t){
-return (t||"")
-.toLowerCase()
-.trim()
-.replace(/\s+/g,"")
-.replace(/[^a-z0-9]/g,"");
+let codigo = params.get("edificio");
+
+if (codigo) {
+  codigo = codigo
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, "")
+    .replace(/[^a-z0-9]/g, "");
 }
 
 // =========================
-// DEVICE ID SEGURO
+// DEVICE ID
 // =========================
-function device(){
-let id=localStorage.getItem("device_id");
-
-if(!id){
-id=crypto.randomUUID();
-localStorage.setItem("device_id",id);
-}
-
-return id;
+function getDeviceId(){
+  let id = localStorage.getItem("device_id");
+  if(!id){
+    id = crypto.randomUUID();
+    localStorage.setItem("device_id", id);
+  }
+  return id;
 }
 
 // =========================
 // CARGAR EDIFICIO
 // =========================
-async function cargar(){
+async function cargarEdificio(){
 
-if(!codigo){
-estado("QR no detectado ❌","error");
-edificio.innerText="Sin QR";
-return;
+  if(!codigo) return;
+
+  const res = await fetch("/admin/edificios");
+  const data = await res.json();
+
+  const ed = data.find(e =>
+    (e.codigo_qr || "").toLowerCase().replace(/\s+/g,"") === codigo
+  );
+
+  const titulo = document.getElementById("edificio");
+  const estado = document.getElementById("estado");
+
+  if(ed){
+    titulo.innerText = ed.nombre;
+    estado.innerText = "Edificio válido ✔";
+    estado.className = "ok";
+  }else{
+    titulo.innerText = "Inválido ❌";
+    estado.innerText = "QR no reconocido";
+    estado.className = "error";
+  }
 }
 
-try{
-
-const r=await fetch("/admin/edificios");
-const d=await r.json();
-
-const ed=d.find(e=>limpiar(e.codigo_qr)==limpiar(codigo));
-
-if(ed){
-edificio.innerText=ed.nombre;
-estado("Edificio válido ✔","ok");
-}else{
-edificio.innerText="Inválido ❌";
-estado("QR no pertenece a ningún edificio","error");
-}
-
-}catch(e){
-estado("Error de conexión","error");
-}
-}
-
-cargar();
+cargarEdificio();
 
 // =========================
-// MENSAJE UI
+// CAMARA QR
 // =========================
-function estado(msg,type){
+function camara(){
 
-const box=document.getElementById("estado");
+const scanner = new Html5Qrcode("reader");
 
-box.innerText=msg;
-box.className=type;
+Html5Qrcode.getCameras().then(devices => {
+
+let camera = devices[0].id;
+
+scanner.start(
+camera,
+{ fps:10, qrbox:250 },
+async (text) => {
+
+await scanner.stop();
+scanner.clear();
+
+let clean = text
+.toLowerCase()
+.replace(/^https?:\/\/.*[?&]edificio=/,"")
+.replace(/[^a-z0-9]/g,"");
+
+location.href = "/?edificio=" + clean;
+}
+);
+
+});
 }
 
 // =========================
 // REGISTRO
 // =========================
-form.onsubmit=async(e)=>{
+document.getElementById("form").addEventListener("submit", async (e)=>{
+
 e.preventDefault();
 
-try{
+const cedula = document.getElementById("cedula").value;
 
-const r=await fetch("/registro",{
+const res = await fetch("/registro",{
 method:"POST",
 headers:{"Content-Type":"application/json"},
 body:JSON.stringify({
-cedula:cedula.value,
-codigoEdificio:codigo,
-deviceId:device()
+cedula,
+codigoEdificio: codigo,
+deviceId: getDeviceId()
 })
 });
 
-const d=await r.json();
+const data = await res.json();
 
-alert(d.mensaje);
+const estado = document.getElementById("estado");
 
-}catch(err){
-alert("Error de red ❌");
-}
+estado.innerText = data.mensaje;
 
-};
+estado.className = "ok";
 
-// =========================
-// QR SCANNER MEJORADO
-// =========================
-function camara(){
-
-const scan=new Html5Qrcode("reader");
-
-Html5Qrcode.getCameras().then(devs=>{
-
-if(!devs || devs.length===0){
-alert("No hay cámara");
-return;
-}
-
-// usar cámara trasera si existe
-let back=devs.find(d=>
-(d.label||"").toLowerCase().includes("back") ||
-(d.label||"").toLowerCase().includes("rear") ||
-(d.label||"").toLowerCase().includes("environment")
-);
-
-let cam=back?back.id:devs[0].id;
-
-scan.start(cam,{fps:10,qrbox:250},
-
-async(text)=>{
-
-try{await scan.stop();}catch(e){}
-
-let clean=text
-.replace(/.*edificio=/,"")
-.toLowerCase()
-.replace(/[^a-z0-9]/g,"");
-
-location.href="/?edificio="+clean;
+setTimeout(()=>{
+estado.innerText = "Esperando validación...";
+estado.className = "";
+},2500);
 
 });
-
-}).catch(()=>{
-alert("Error cámara ❌");
-});
-
-}
 
 </script>
 
