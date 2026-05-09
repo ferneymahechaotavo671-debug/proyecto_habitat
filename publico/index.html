@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Registro QR</title>
 
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#0f3d2e">
+<link rel="apple-touch-icon" href="/icon-192.png">
+
 <style>
 
 /* ===== RESET ===== */
@@ -324,6 +328,24 @@ document.getElementById("form").onsubmit = async (e) => {
   }
 };
 
+</script>
+
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+
+  navigator.serviceWorker
+    .register("/sw.js")
+
+    .then(() => {
+      console.log("Service Worker registrado ✅");
+    })
+
+    .catch(err => {
+      console.log("Error SW", err);
+    });
+}
 </script>
 
 </body>
