@@ -9,155 +9,73 @@
 <meta name="theme-color" content="#0f3d2e">
 <link rel="apple-touch-icon" href="/icon-512.png">
 
+<script src="https://unpkg.com/html5-qrcode"></script>
+
 <style>
+*{margin:0;padding:0;box-sizing:border-box}
 
-/* ===== RESET ===== */
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
+body{
+font-family:'Poppins',sans-serif;
+background:linear-gradient(135deg,#0f3d2e,#1f7a63,#38b48b);
+min-height:100vh;
+display:flex;
+justify-content:center;
+align-items:center;
 }
 
-/* ===== FUENTE PRO ===== */
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap');
-
-body {
-    font-family: 'Poppins', sans-serif;
-    background: linear-gradient(135deg, #0f3d2e, #1f7a63, #38b48b);
-    min-height: 100vh;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-
-    animation: fondoAnim 6s ease-in-out infinite alternate;
+.container{
+background:rgba(255,255,255,0.93);
+padding:35px;
+border-radius:22px;
+width:90%;
+max-width:420px;
+text-align:center;
 }
 
-/* ===== ANIMACIÓN FONDO ===== */
-@keyframes fondoAnim {
-    0% { filter: brightness(0.95); }
-    100% { filter: brightness(1.05); }
+input{
+padding:13px;
+width:100%;
+margin-top:10px;
+border-radius:12px;
+border:1px solid #ddd;
 }
 
-/* ===== CONTENEDOR ===== */
-.container {
-    background: rgba(255, 255, 255, 0.93);
-    backdrop-filter: blur(12px);
-    padding: 35px;
-    border-radius: 22px;
-    width: 90%;
-    max-width: 420px;
-    box-shadow: 0 20px 40px rgba(0,0,0,0.25);
-    text-align: center;
-    animation: aparecer 0.6s ease;
+button{
+padding:13px;
+width:100%;
+margin-top:10px;
+border:none;
+border-radius:12px;
+background:#1f7a63;
+color:white;
 }
 
-/* ===== ANIMACIÓN ===== */
-@keyframes aparecer {
-    from { opacity: 0; transform: translateY(20px) scale(0.97); }
-    to { opacity: 1; transform: translateY(0) scale(1); }
+#reader{
+margin-top:15px;
 }
 
-/* ===== LOGO ===== */
-.logo {
-    width: 110px;
-    margin-bottom: 15px;
+#overlayMensaje{
+position:fixed;
+top:0;left:0;
+width:100%;height:100%;
+background:rgba(0,0,0,0.7);
+display:flex;
+justify-content:center;
+align-items:center;
+opacity:0;
+pointer-events:none;
+transition:0.4s;
 }
 
-/* ===== TITULO ===== */
-h1 {
-    color: #0f3d2e;
-    margin-bottom: 10px;
+#overlayMensaje.show{
+opacity:1;
+pointer-events:all;
 }
 
-/* ===== SUBTITULO ===== */
-h3 {
-    color: #1f7a63;
-    margin-bottom: 20px;
-}
-
-/* ===== FORM ===== */
-form {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-}
-
-/* ===== INPUT ===== */
-input {
-    padding: 13px;
-    border-radius: 12px;
-    border: 1px solid #ddd;
-    background: #f9f9f9;
-}
-
-/* ===== BOTÓN ===== */
-button {
-    padding: 13px;
-    border: none;
-    border-radius: 12px;
-    background: linear-gradient(135deg, #1f7a63, #38b48b);
-    color: white;
-    cursor: pointer;
-}
-
-/* ===== MENSAJE ===== */
-#mensaje {
-    margin-top: 15px;
-    opacity: 0;
-    transition: 0.4s;
-}
-
-#mensaje.show {
-    opacity: 1;
-}
-
-.success { color: #1f7a63; }
-.error { color: #d93025; }
-
-#overlayMensaje {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0,0,0,0.7);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 9999;
-
-  opacity: 0;
-  pointer-events: none;
-  transition: 0.4s;
-}
-
-#overlayMensaje.show {
-  opacity: 1;
-  pointer-events: all;
-}
-
-.mensaje-box {
-  background: white;
-  padding: 40px;
-  border-radius: 20px;
-  text-align: center;
-  animation: pop 0.4s ease;
-}
-
-.mensaje-box h2 {
-  font-size: 28px;
-  color: #1f7a63;
-}
-
-@keyframes pop {
-  from {
-    transform: scale(0.8);
-    opacity: 0;
-  }
-  to {
-    transform: scale(1);
-    opacity: 1;
-  }
+.mensaje-box{
+background:white;
+padding:30px;
+border-radius:20px;
 }
 
 </style>
@@ -167,18 +85,20 @@ button {
 
 <div class="container">
 
-  <img src="logo.png" class="logo">
+  <img src="logo.png" width="100">
 
-  <h1>Registro de Ingreso / Salida</h1>
+  <h2>Registro QR</h2>
 
   <h3 id="edificio">Validando...</h3>
 
   <form id="form">
-    <input type="text" id="cedula" placeholder="Ingrese su cédula" required>
-    <button type="submit">Registrar</button>
+    <input id="cedula" placeholder="Cédula" required>
+    <button>Registrar</button>
   </form>
 
-  <p id="mensaje"></p>
+  <button onclick="iniciarCamaraQR()">📷 Escanear QR</button>
+
+  <div id="reader"></div>
 
 </div>
 
@@ -190,224 +110,252 @@ button {
 
 <script>
 
-// ==============================
+// =========================
+// 🔐 DEVICE ID (ANTI-SUPLANTACIÓN)
+// =========================
+function getDeviceId(){
+  let id = localStorage.getItem("device_id");
+
+  if(!id){
+    id = crypto.randomUUID();
+    localStorage.setItem("device_id", id);
+  }
+
+  return id;
+}
+
+// =========================
 // QR
-// ==============================
+// =========================
 const params = new URLSearchParams(location.search);
 let codigo = params.get("edificio");
 
-let modoHome = false;
+// =========================
+// TIEMPO QR
+// =========================
+const LIMITE = 20 * 60 * 1000;
 
-// ==============================
-// SI NO HAY QR → HOME
-// ==============================
-if (!codigo) {
+let inicio = localStorage.getItem("inicioQR");
 
-  modoHome = true;
-
-  document.body.innerHTML = `
-    <div style="text-align:center; padding:30px; font-family:Arial;">
-      <h1>🏢 HÁBITAT</h1>
-
-      <p>Selecciona una opción</p>
-
-      <button onclick="iniciarCamaraQR()" style="
-        padding:12px;
-        margin-top:20px;
-        background:#1f7a63;
-        color:white;
-        border:none;
-        border-radius:10px;
-        width:80%;
-      ">
-        📷 Escanear QR
-      </button>
-
-      <button onclick="cargarEdificios()" style="
-        padding:12px;
-        margin-top:10px;
-        background:#0f3d2e;
-        color:white;
-        border:none;
-        border-radius:10px;
-        width:80%;
-      ">
-        🏢 Ver edificios
-      </button>
-
-      <div id="lista"></div>
-
-      <video id="video" style="width:100%; margin-top:20px; display:none;"></video>
-
-    </div>
-  `;
+if(!inicio){
+  inicio = Date.now();
+  localStorage.setItem("inicioQR", inicio);
 }
 
-// ==============================
-// ⏱ TIEMPO QR
-// ==============================
-const TIEMPO_LIMITE = 20 * 60 * 1000;
-
-let inicioGuardado = localStorage.getItem("inicioQR");
-
-if (!inicioGuardado) {
-  inicioGuardado = Date.now();
-  localStorage.setItem("inicioQR", inicioGuardado);
-}
-
-const inicio = parseInt(inicioGuardado);
-
-function verificarTiempo() {
-  const ahora = Date.now();
-  if (ahora - inicio > TIEMPO_LIMITE) {
-    localStorage.removeItem("inicioQR");
-
-    document.body.innerHTML = `
-      <div style="text-align:center;">
-        <h2>⏰ Sesión expirada</h2>
-        <p>Debes escanear nuevamente el QR</p>
-      </div>
-    `;
+function verificar(){
+  if(Date.now() - inicio > LIMITE){
+    document.body.innerHTML = "<h2>QR expirado</h2>";
     return false;
   }
   return true;
 }
 
-if (!verificarTiempo()) throw new Error("expirado");
+if(!verificar()) throw new Error();
 
-// ==============================
-// CARGAR EDIFICIO (ARREGLADO)
-// ==============================
-async function cargarNombreEdificio() {
+// =========================
+// CARGAR EDIFICIO
+// =========================
+async function cargarEdificio(){
 
-  if (modoHome) return;
-
-  try {
-
-    const res = await fetch("/admin/edificios", {
-      headers: {
-        "Authorization": localStorage.getItem("auth") || ""
-      }
-    });
-
-    const data = await res.json();
-
-    const edificio = data.find(e => e.codigo_qr === codigo);
-
-    document.getElementById("edificio").innerText =
-      edificio ? edificio.nombre : "Edificio no válido ❌";
-
-  } catch (error) {
-    document.getElementById("edificio").innerText = "Error cargando edificio";
-  }
-}
-
-cargarNombreEdificio();
-
-// ==============================
-// ESCÁNER QR REAL (CÁMARA)
-// ==============================
-function iniciarCamaraQR() {
-
-  const video = document.getElementById("video");
-  video.style.display = "block";
-
-  navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-    .then(stream => {
-
-      video.srcObject = stream;
-      video.play();
-
-      const track = stream.getVideoTracks()[0];
-      const imageCapture = new ImageCapture(track);
-
-      setInterval(async () => {
-
-        try {
-
-          const bitmap = await imageCapture.grabFrame();
-          const canvas = document.createElement("canvas");
-          canvas.width = bitmap.width;
-          canvas.height = bitmap.height;
-
-          const ctx = canvas.getContext("2d");
-          ctx.drawImage(bitmap, 0, 0);
-
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-
-          // 👉 Aquí conectamos lector QR simple (placeholder)
-          console.log("Escaneando QR...");
-
-        } catch (err) {
-          console.log(err);
-        }
-
-      }, 1500);
-
-    })
-    .catch(err => {
-      alert("No se pudo abrir cámara ❌");
-    });
-}
-
-// ==============================
-// LISTA EDIFICIOS
-// ==============================
-async function cargarEdificios() {
+  if(!codigo) return;
 
   const res = await fetch("/admin/edificios", {
-    headers: {
+    headers:{
       "Authorization": localStorage.getItem("auth") || ""
     }
   });
 
   const data = await res.json();
 
-  const lista = document.getElementById("lista");
+  const ed = data.find(e => e.codigo_qr === codigo);
 
-  lista.innerHTML = data.map(e => `
-    <div style="
-      margin-top:10px;
-      padding:10px;
-      background:#eee;
-      border-radius:10px;
-    ">
-      <b>${e.nombre}</b><br>
-      <small>${e.codigo_qr}</small>
-    </div>
-  `).join("");
+  document.getElementById("edificio").innerText =
+    ed ? ed.nombre : "Edificio inválido";
 }
 
-// ==============================
-// REGISTRO
-// ==============================
-document.getElementById("form").onsubmit = async (e) => {
+cargarEdificio();
 
-  e.preventDefault();
+// =========================
+// QR CAMERA
+// =========================
+function iniciarCamaraQR(){
 
-  if (!verificarTiempo()) return;
+  const scanner = new Html5Qrcode("reader");
 
-  const cedula = document.getElementById("cedula").value.trim();
+  Html5Qrcode.getCameras().then(devices=>{
 
-  try {
+    const cam = devices[0].id;
 
-    const res = await fetch("/registro", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        cedula,
-        codigoEdificio: codigo
-      })
-    });
+    scanner.start(
+      cam,
+      { fps:10, qrbox:250 },
+      (text)=>{
 
-    const data = await res.json();
+        scanner.stop();
 
-    mostrarMensajeGrande(data.mensaje, "ok");
+        window.location.href = `/?edificio=${text}`;
 
-  } catch (err) {
-    mostrarMensajeGrande("Error de conexión ❌", "error");
+      }
+    );
+
+  });
+}
+
+// =========================
+// REGISTRO + ANTI-SUPLANTACIÓN
+// =========================
+app.post("/registro", (req, res) => {
+
+  let cedula = req.body.cedula?.toString().trim();
+  let codigoEdificio = req.body.codigoEdificio
+    ?.toString()
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "")
+    .replace(/\./g, "")
+    .replace(/[^a-z0-9]/g, "");
+
+  let deviceId = req.body.deviceId;
+
+  if (!cedula || !codigoEdificio || !deviceId) {
+    return res.status(400).json({ mensaje: "Datos incompletos ❌" });
   }
-};
+
+  // =========================
+  // 1. VALIDAR EDIFICIO
+  // =========================
+  db.query(
+    `SELECT * FROM edificios WHERE codigo_qr = ?`,
+    [codigoEdificio],
+    (err, eds) => {
+
+      if (err) return res.status(500).json({ mensaje: "Error servidor ❌" });
+
+      if (eds.length === 0) {
+        return res.json({ mensaje: "QR inválido ❌" });
+      }
+
+      const edificio = eds[0];
+
+      // =========================
+      // 2. VALIDAR USUARIO
+      // =========================
+      db.query(
+        `SELECT u.id, u.nombre, r.nombre AS rol
+         FROM usuarios u
+         JOIN roles r ON u.rol_id = r.id
+         WHERE u.cedula = ?`,
+        [cedula],
+        (err, users) => {
+
+          if (err) return res.status(500).json({ mensaje: "Error servidor ❌" });
+
+          if (users.length === 0) {
+            return res.json({ mensaje: "Usuario no existe ❌" });
+          }
+
+          const user = users[0];
+
+          // =========================
+          // 3. VALIDAR DISPOSITIVO
+          // =========================
+          db.query(
+            `SELECT * FROM dispositivos 
+             WHERE cedula=? AND edificio_id=?`,
+            [cedula, edificio.id],
+            (err, devices) => {
+
+              if (err) return res.status(500).json({ mensaje: "Error servidor ❌" });
+
+              // 👉 SI YA EXISTE REGISTRO
+              if (devices.length > 0) {
+
+                const savedDevice = devices[0].device_id;
+
+                // 🚨 SUPLANTACIÓN DETECTADA
+                if (savedDevice !== deviceId) {
+
+                  // log de seguridad
+                  console.log("🚨 INTENTO DE SUPLANTACIÓN:", {
+                    cedula,
+                    deviceId,
+                    savedDevice
+                  });
+
+                  return res.status(403).json({
+                    mensaje: "🚫 Dispositivo no autorizado"
+                  });
+                }
+              }
+
+              // =========================
+              // 4. REGISTRAR DISPOSITIVO SI ES NUEVO
+              // =========================
+              if (devices.length === 0) {
+
+                db.query(
+                  `INSERT INTO dispositivos (cedula, device_id, edificio_id)
+                   VALUES (?, ?, ?)`,
+                  [cedula, deviceId, edificio.id]
+                );
+              }
+
+              // =========================
+              // 5. LÓGICA DE REGISTRO
+              // =========================
+              db.query(
+                `SELECT *
+                 FROM registros
+                 WHERE cedula=? AND edificio_id=?
+                 ORDER BY fecha_hora DESC
+                 LIMIT 1`,
+                [cedula, edificio.id],
+                (err, last) => {
+
+                  if (err) return res.status(500).json({ mensaje: "Error servidor ❌" });
+
+                  let tipo = "Entrada";
+
+                  if (last.length > 0) {
+                    tipo = last[0].tipo_registro === "Entrada" ? "Salida" : "Entrada";
+                  }
+
+                  // =========================
+                  // 6. INSERT REGISTRO
+                  // =========================
+                  db.query(
+                    `INSERT INTO registros
+                    (nombre, cedula, edificio, tipo_registro, edificio_id, rol)
+                    VALUES (?, ?, ?, ?, ?, ?)`,
+                    [
+                      user.nombre,
+                      cedula,
+                      edificio.nombre,
+                      tipo,
+                      edificio.id,
+                      user.rol
+                    ],
+                    (err) => {
+
+                      if (err) {
+                        return res.status(500).json({ mensaje: "Error registro ❌" });
+                      }
+
+                      return res.json({
+                        mensaje: `${tipo} registrada ✅`,
+                        seguridad: "OK"
+                      });
+                    }
+                  );
+                }
+              );
+            }
+          );
+        }
+      );
+    }
+  );
+});
 
 </script>
 
