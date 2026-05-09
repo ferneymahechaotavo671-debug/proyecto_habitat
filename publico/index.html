@@ -333,5 +333,48 @@ if ("serviceWorker" in navigator) {
 }
 </script>
 
+<script>
+
+let deferredPrompt;
+
+window.addEventListener("beforeinstallprompt", (e) => {
+  console.log("PWA installable detectada");
+
+  e.preventDefault();
+  deferredPrompt = e;
+
+  const btn = document.createElement("button");
+  btn.innerText = "📲 Instalar App";
+
+  Object.assign(btn.style, {
+    position: "fixed",
+    bottom: "20px",
+    right: "20px",
+    padding: "12px",
+    background: "#1f7a63",
+    color: "white",
+    border: "none",
+    borderRadius: "10px",
+    zIndex: "9999"
+  });
+
+  document.body.appendChild(btn);
+
+  btn.addEventListener("click", async () => {
+    if (!deferredPrompt) return;
+
+    deferredPrompt.prompt();
+
+    const { outcome } = await deferredPrompt.userChoice;
+
+    console.log("Resultado instalación:", outcome);
+
+    deferredPrompt = null;
+    btn.remove();
+  });
+});
+
+</script>
+
 </body>
 </html>
