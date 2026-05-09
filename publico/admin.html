@@ -103,7 +103,7 @@ text-align:center;
 border-bottom:1px solid #eee;
 }
 
-/* GRID DASH */
+/* DASH */
 .grid{
 display:grid;
 grid-template-columns:repeat(3,1fr);
@@ -124,7 +124,7 @@ color:red;
 font-weight:bold;
 }
 
-/* MENU */
+/* MODAL */
 .modal{
 position:fixed;
 inset:0;
@@ -138,12 +138,18 @@ align-items:center;
 background:white;
 padding:20px;
 border-radius:12px;
-width:320px;
+width:340px;
+}
+
+.card input, .card select{
+width:100%;
+padding:10px;
+margin:6px 0;
 }
 
 .card button{
 width:100%;
-margin:5px 0;
+margin-top:5px;
 }
 </style>
 </head>
@@ -169,7 +175,7 @@ margin:5px 0;
 
 <h1>Panel Admin PRO</h1>
 
-<!-- DASH -->
+<!-- DASHBOARD -->
 <div class="grid">
 <div class="box">Entradas<br><span id="entradas">0</span></div>
 <div class="box">Salidas<br><span id="salidas">0</span></div>
@@ -182,6 +188,7 @@ margin:5px 0;
 <div class="filters">
 <select id="edificio"></select>
 <input id="cedula" placeholder="Cédula">
+
 <button onclick="cargar()">Filtrar</button>
 <button onclick="menu()">☰ Menú</button>
 </div>
@@ -205,19 +212,48 @@ margin:5px 0;
 
 </div>
 
-<!-- MENU COMPLETO -->
+<!-- MENU -->
 <div class="modal" id="menuBox">
 <div class="card">
-
-<h3>MENÚ ADMIN</h3>
+<h3>MENÚ</h3>
 
 <button onclick="abrirUsuario()">➕ Usuario</button>
 <button onclick="abrirEdificio()">🏢 Edificio</button>
 <button onclick="abrirPermisos()">🔐 Permisos</button>
 <button onclick="abrirDash()">📊 Dashboard</button>
-<button onclick="alert('Exportar Excel en backend')">📥 Excel</button>
 <button onclick="cerrar()">Cerrar</button>
 
+</div>
+</div>
+
+<!-- USUARIO -->
+<div class="modal" id="userBox">
+<div class="card">
+<h3>Usuario</h3>
+<input id="nombre" placeholder="Nombre">
+<input id="cedulaU" placeholder="Cédula">
+<input id="rol" placeholder="Rol ID">
+<button onclick="crearUsuario()">Guardar</button>
+</div>
+</div>
+
+<!-- EDIFICIO -->
+<div class="modal" id="edificioBox">
+<div class="card">
+<h3>Edificio</h3>
+<input id="nombreE" placeholder="Nombre">
+<button onclick="crearEdificio()">Guardar</button>
+</div>
+</div>
+
+<!-- PERMISOS -->
+<div class="modal" id="permisoBox">
+<div class="card">
+<h3>Permisos</h3>
+<input id="cedulaP" placeholder="Cédula">
+<select id="edificioP"></select>
+<button onclick="asignar()">Dar</button>
+<button onclick="quitar()">Quitar</button>
 </div>
 </div>
 
@@ -253,9 +289,11 @@ const r=await fetch("/admin/edificios");
 const d=await r.json();
 
 edificio.innerHTML="";
+edificioP.innerHTML="";
 
 d.forEach(e=>{
 edificio.innerHTML+=`<option value="${e.id}">${e.nombre}</option>`;
+edificioP.innerHTML+=`<option value="${e.id}">${e.nombre}</option>`;
 });
 }
 
@@ -286,7 +324,11 @@ tabla.innerHTML+=`
 <td>${r.edificio}</td>
 <td>${r.rol}</td>
 <td>${r.tipo_registro}</td>
-<td>${r.fecha_hora}</td>
+
+<td>
+${new Date(r.fecha_hora).toLocaleString("es-CO")}
+</td>
+
 <td style="color:red">${r.observacion||"-"}</td>
 </tr>`;
 });
@@ -327,6 +369,8 @@ dashBox.style.display="flex";
 
 const ctx=document.getElementById("dashChart");
 
+if(dash) dash.destroy();
+
 dash=new Chart(ctx,{
 type:"pie",
 data:{
@@ -350,6 +394,83 @@ if(dash) dash.destroy();
 /* MENU */
 function menu(){menuBox.style.display="flex"}
 function cerrar(){menuBox.style.display="none"}
+
+/* USUARIO */
+function abrirUsuario(){userBox.style.display="flex"}
+async function crearUsuario(){
+
+await fetch("/admin/crear-usuario",{
+method:"POST",
+headers:{
+"Content-Type":"application/json",
+Authorization:PASS
+},
+body:JSON.stringify({
+nombre:nombre.value,
+cedula:cedulaU.value,
+rol_id:rol.value
+})
+});
+
+alert("Usuario creado");
+userBox.style.display="none";
+}
+
+/* EDIFICIO */
+function abrirEdificio(){edificioBox.style.display="flex"}
+
+async function crearEdificio(){
+
+await fetch("/admin/agregar-edificio",{
+method:"POST",
+headers:{
+"Content-Type":"application/json",
+Authorization:PASS
+},
+body:JSON.stringify({nombre:nombreE.value})
+});
+
+alert("Edificio creado");
+edificioBox.style.display="none";
+loadEdificios();
+}
+
+/* PERMISOS */
+function abrirPermisos(){permisoBox.style.display="flex"}
+
+async function asignar(){
+
+await fetch("/admin/asignar-edificio",{
+method:"POST",
+headers:{
+"Content-Type":"application/json",
+Authorization:PASS
+},
+body:JSON.stringify({
+cedula:cedulaP.value,
+edificio_id:edificioP.value
+})
+});
+
+alert("Permiso dado");
+}
+
+async function quitar(){
+
+await fetch("/admin/quitar-permiso",{
+method:"POST",
+headers:{
+"Content-Type":"application/json",
+Authorization:PASS
+},
+body:JSON.stringify({
+cedula:cedulaP.value,
+edificio_id:edificioP.value
+})
+});
+
+alert("Permiso quitado");
+}
 
 </script>
 
