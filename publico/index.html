@@ -143,23 +143,47 @@ function getDeviceId(){
 // =========================
 const LIMITE = 20 * 60 * 1000;
 
+let codigoActual = codigo; // QR actual
 let inicio = localStorage.getItem("inicioQR");
+let codigoGuardado = localStorage.getItem("codigoQR");
 
-if(!inicio){
+function reiniciarTiempo() {
   localStorage.setItem("inicioQR", Date.now());
+  localStorage.setItem("codigoQR", codigoActual);
 }
 
-function verificarTiempo(){
+// 👉 SI NO HAY TIEMPO O ES OTRO QR → reinicia
+if (!inicio || codigoGuardado !== codigoActual) {
+  reiniciarTiempo();
+  inicio = localStorage.getItem("inicioQR");
+}
+
+// =============================
+// VERIFICAR TIEMPO
+// =============================
+function verificarTiempo() {
   const start = Number(localStorage.getItem("inicioQR"));
 
-  if(Date.now() - start > LIMITE){
-    document.body.innerHTML = "<h2>⏰ QR expirado</h2>";
+  if (Date.now() - start > LIMITE) {
+
+    localStorage.removeItem("inicioQR");
+    localStorage.removeItem("codigoQR");
+
+    document.body.innerHTML = `
+      <div style="text-align:center;font-family:Arial;">
+        <h2>⏰ QR expirado</h2>
+        <p>Vuelve a escanear el código</p>
+      </div>
+    `;
+
     return false;
   }
+
   return true;
 }
 
-if(codigo && !verificarTiempo()) throw new Error("expirado");
+// solo validar si hay QR
+if (codigo && !verificarTiempo()) throw new Error("expirado");
 
 // =========================
 // CARGAR EDIFICIO (SEGURO)
