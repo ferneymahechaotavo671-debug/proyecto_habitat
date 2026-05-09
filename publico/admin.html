@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Admin Pro</title>
+<title>Admin PRO</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -16,6 +16,7 @@ min-height:100vh;
 padding:20px;
 }
 
+/* LOGIN */
 #loginBox{
 position:fixed;inset:0;
 background:rgba(0,0,0,0.6);
@@ -50,6 +51,7 @@ border:none;
 border-radius:10px;
 }
 
+/* PANEL */
 .container{
 display:none;
 background:white;
@@ -61,6 +63,7 @@ margin:auto;
 
 h1{text-align:center;margin-bottom:10px}
 
+/* FILTROS */
 .filters{
 display:flex;
 gap:10px;
@@ -81,6 +84,7 @@ border:none;
 cursor:pointer;
 }
 
+/* TABLA */
 table{
 width:100%;
 border-collapse:collapse;
@@ -99,22 +103,7 @@ text-align:center;
 border-bottom:1px solid #eee;
 }
 
-.modal{
-position:fixed;
-inset:0;
-background:rgba(0,0,0,0.6);
-display:none;
-justify-content:center;
-align-items:center;
-}
-
-.card{
-background:white;
-padding:20px;
-border-radius:12px;
-width:350px;
-}
-
+/* GRID DASH */
 .grid{
 display:grid;
 grid-template-columns:repeat(3,1fr);
@@ -134,11 +123,34 @@ text-align:center;
 color:red;
 font-weight:bold;
 }
+
+/* MENU */
+.modal{
+position:fixed;
+inset:0;
+background:rgba(0,0,0,0.6);
+display:none;
+justify-content:center;
+align-items:center;
+}
+
+.card{
+background:white;
+padding:20px;
+border-radius:12px;
+width:320px;
+}
+
+.card button{
+width:100%;
+margin:5px 0;
+}
 </style>
 </head>
 
 <body>
 
+<!-- LOGO -->
 <div style="text-align:center;margin-bottom:10px;">
   <img src="logo.png" width="100">
 </div>
@@ -157,21 +169,24 @@ font-weight:bold;
 
 <h1>Panel Admin PRO</h1>
 
+<!-- DASH -->
 <div class="grid">
-<div class="box">Entradas hoy<br><span id="entradas">0</span></div>
-<div class="box">Salidas hoy<br><span id="salidas">0</span></div>
+<div class="box">Entradas<br><span id="entradas">0</span></div>
+<div class="box">Salidas<br><span id="salidas">0</span></div>
 <div class="box alerta">Alertas<br><span id="alertas">0</span></div>
 </div>
 
 <canvas id="chart"></canvas>
 
+<!-- FILTROS -->
 <div class="filters">
 <select id="edificio"></select>
 <input id="cedula" placeholder="Cédula">
 <button onclick="cargar()">Filtrar</button>
-<button onclick="abrirDash()">Dashboard</button>
+<button onclick="menu()">☰ Menú</button>
 </div>
 
+<!-- TABLA -->
 <table>
 <thead>
 <tr>
@@ -190,11 +205,26 @@ font-weight:bold;
 
 </div>
 
+<!-- MENU COMPLETO -->
+<div class="modal" id="menuBox">
+<div class="card">
+
+<h3>MENÚ ADMIN</h3>
+
+<button onclick="abrirUsuario()">➕ Usuario</button>
+<button onclick="abrirEdificio()">🏢 Edificio</button>
+<button onclick="abrirPermisos()">🔐 Permisos</button>
+<button onclick="abrirDash()">📊 Dashboard</button>
+<button onclick="alert('Exportar Excel en backend')">📥 Excel</button>
+<button onclick="cerrar()">Cerrar</button>
+
+</div>
+</div>
+
 <!-- DASHBOARD -->
 <div class="modal" id="dashBox">
 <div class="card">
 <h3>Dashboard</h3>
-<p>Resumen en tiempo real</p>
 <canvas id="dashChart"></canvas>
 <button onclick="cerrarDash()">Cerrar</button>
 </div>
@@ -240,7 +270,7 @@ const d=await r.json();
 
 tabla.innerHTML="";
 
-let ent=0, sal=0, alert=0;
+let ent=0,sal=0,alert=0;
 
 d.forEach(r=>{
 
@@ -268,7 +298,7 @@ alertas.innerText=alert;
 updateChart(ent,sal,alert);
 }
 
-/* CHART PRINCIPAL */
+/* CHART */
 let chart;
 
 function updateChart(e,s,a){
@@ -316,6 +346,10 @@ function cerrarDash(){
 dashBox.style.display="none";
 if(dash) dash.destroy();
 }
+
+/* MENU */
+function menu(){menuBox.style.display="flex"}
+function cerrar(){menuBox.style.display="none"}
 
 </script>
 
