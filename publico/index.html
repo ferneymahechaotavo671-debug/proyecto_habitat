@@ -240,55 +240,51 @@ function iniciarCamaraQR() {
       return;
     }
 
-    // 🔥 FORZAR CÁMARA TRASERA
-    let backCamera = devices.find(d =>
-      (d.label || "").toLowerCase().includes("back") ||
-      (d.label || "").toLowerCase().includes("rear") ||
-      (d.label || "").toLowerCase().includes("environment")
-    );
+    // 🔥 FORZAR CÁMARA TRASERA REAL
+    let backCamera = devices.find(d => {
 
-    const cam = backCamera ? backCamera.id : devices[0].id;
+      const label = (d.label || "").toLowerCase();
+
+      return (
+        label.includes("back") ||
+        label.includes("rear") ||
+        label.includes("environment") ||
+        label.includes("trasera")
+      );
+    });
+
+    const cameraId = backCamera ? backCamera.id : devices[devices.length - 1].id;
 
     scanner.start(
-      cam,
+      cameraId,
       {
         fps: 10,
-        qrbox: 250,
+        qrbox: { width: 250, height: 250 },
         aspectRatio: 1.0
       },
       async (text) => {
 
         try {
-
           await scanner.stop();
           scanner.clear();
+        } catch (e) {}
 
-        } catch (e) {
-          console.log("scanner stop error:", e);
-        }
-
-        // 🔥 LIMPIAR QR (MUY IMPORTANTE)
-        let codigo = text
-          .toString()
-          .trim()
+        // 🔥 LIMPIEZA QR (MUY IMPORTANTE)
+        let codigoLimpio = text
           .replace(/^https?:\/\/.*[?&]edificio=/, "")
-          .replace(/\s+/g, "")
-          .toLowerCase();
+          .trim()
+          .toLowerCase()
+          .replace(/[^a-z0-9]/g, "");
 
-        console.log("QR limpio:", codigo);
+        console.log("QR leído:", codigoLimpio);
 
-        // 🔥 REDIRECCIÓN SEGURA
-        window.location.href = `/?edificio=${codigo}`;
-
-      },
-      (error) => {
-        // silencioso
+        window.location.href = `/?edificio=${codigoLimpio}`;
       }
     );
 
   }).catch(err => {
     console.error(err);
-    alert("No se pudo abrir cámara ❌");
+    alert("Error iniciando cámara ❌");
   });
 }
 
