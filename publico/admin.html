@@ -6,6 +6,8 @@
 <title>Admin</title>
 
 <style>
+
+/* ===== RESET ===== */
 * {
   margin: 0;
   padding: 0;
@@ -13,6 +15,7 @@
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* ===== FONDO PRO ===== */
 body {
   background: linear-gradient(135deg, #0f3d2e, #1f7a63, #38b48b);
   min-height: 100vh;
@@ -22,7 +25,7 @@ body {
   padding: 30px;
 }
 
-/* LOGIN */
+/* ===== LOGIN ===== */
 #loginBox {
   position: fixed;
   inset: 0;
@@ -41,54 +44,81 @@ body {
   text-align: center;
 }
 
-/* CONTENEDOR */
-.container {
-  background: rgba(255,255,255,0.95);
-  padding: 25px;
-  border-radius: 22px;
-  max-width: 1100px;
+.login-card input {
   width: 100%;
+  padding: 12px;
+  margin: 10px 0;
+}
+
+/* ===== CONTENEDOR ===== */
+.container {
+  background: white;
+  padding: 25px;
+  border-radius: 20px;
+  width: 100%;
+  max-width: 1100px;
   display: none;
 }
 
-/* INPUTS */
-select, input {
-  padding: 11px;
-  border-radius: 12px;
-  border: 1px solid #ddd;
+/* ===== FILTROS ===== */
+.filters {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+  flex-wrap: wrap;
 }
 
-/* BOTONES */
+select, input {
+  padding: 10px;
+  flex: 1;
+}
+
 button {
-  padding: 11px 16px;
-  border: none;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #1f7a63, #38b48b);
+  padding: 10px 14px;
+  background: #1f7a63;
   color: white;
+  border: none;
   cursor: pointer;
 }
 
-/* TABLA (NO TOCADA) */
+/* ===== TABLA ===== */
 table {
   width: 100%;
   border-collapse: collapse;
-  margin-top: 15px;
-  background: white;
-  border-radius: 15px;
-  overflow: hidden;
 }
 
 th {
   background: #1f7a63;
   color: white;
-  padding: 12px;
 }
 
-td {
-  padding: 12px;
+td, th {
+  padding: 10px;
   text-align: center;
-  border-bottom: 1px solid #eee;
 }
+
+/* ===== MODALES ===== */
+#formulario, #permisoBox, #menuBox {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  justify-content: center;
+  align-items: center;
+}
+
+.menu-card, .modal {
+  background: white;
+  padding: 20px;
+  border-radius: 15px;
+  width: 320px;
+  text-align: center;
+}
+
+#menuBox.show {
+  display: flex;
+}
+
 </style>
 </head>
 
@@ -97,17 +127,16 @@ td {
 <!-- LOGIN -->
 <div id="loginBox">
   <div class="login-card">
-    <h3>🔐 Acceso Admin</h3>
-    <input type="password" id="pass" placeholder="Contraseña">
-    <button onclick="login()">Ingresar</button>
-    <p id="msg"></p>
+    <h3>Login Admin</h3>
+    <input type="password" id="pass">
+    <button onclick="login()">Entrar</button>
   </div>
 </div>
 
-<!-- PANEL -->
+<!-- ADMIN -->
 <div class="container">
 
-<h1>Panel Admin</h1>
+<h2>Panel Admin</h2>
 
 <div class="filters">
 
@@ -115,10 +144,6 @@ td {
 <input id="cedula" placeholder="Cédula">
 
 <button onclick="cargar()">Filtrar</button>
-<button onclick="exportarExcel()">Excel</button>
-<button onclick="mostrarFormulario()">➕ Persona</button>
-<button onclick="mostrarFormEdificio()">🏢 Edificio</button>
-<button onclick="abrirPermisos()">🔐 Permisos</button>
 <button onclick="menuAdmin()">☰ Menú</button>
 
 </div>
@@ -133,7 +158,7 @@ td {
 <th>Rol</th>
 <th>Tipo</th>
 <th>Fecha</th>
-<th>Observación</th>
+<th>Obs</th>
 </tr>
 </thead>
 <tbody id="tabla"></tbody>
@@ -141,58 +166,107 @@ td {
 
 </div>
 
+<!-- MENU -->
+<div id="menuBox">
+  <div class="menu-card">
+
+    <h3>Menú</h3>
+
+    <button onclick="mostrarFormulario(); cerrarMenu()">➕ Persona</button>
+    <button onclick="mostrarFormEdificio(); cerrarMenu()">🏢 Edificio</button>
+    <button onclick="abrirPermisos(); cerrarMenu()">🔐 Permisos</button>
+    <button onclick="editarUsuario(); cerrarMenu()">✏️ Editar</button>
+    <button onclick="eliminarRegistro(); cerrarMenu()">🗑️ Eliminar</button>
+    <button onclick="dashboard(); cerrarMenu()">📊 Dashboard</button>
+    <button onclick="exportarExcel(); cerrarMenu()">📥 Excel</button>
+
+    <button onclick="cerrarMenu()">Cerrar</button>
+
+  </div>
+</div>
+
+<!-- PERSONA -->
+<div id="formulario">
+  <div class="modal">
+    <h3>Crear Usuario</h3>
+    <input id="nombreNuevo" placeholder="Nombre">
+    <input id="cedulaNueva" placeholder="Cédula">
+    <input id="rolNuevo" placeholder="Rol ID">
+    <select id="edificioNuevo"></select>
+
+    <button onclick="crearUsuario()">Guardar</button>
+    <button onclick="cerrarFormulario()">Cerrar</button>
+  </div>
+</div>
+
+<!-- PERMISOS -->
+<div id="permisoBox">
+  <div class="modal">
+    <h3>Permisos</h3>
+    <input id="cedulaPermiso" placeholder="Cédula">
+    <select id="edificioPermiso"></select>
+
+    <button onclick="asignarPermiso()">Dar acceso</button>
+    <button onclick="quitarPermiso()">Quitar</button>
+    <button onclick="cerrarPermisos()">Cerrar</button>
+  </div>
+</div>
+
 <script>
 
+/* ======================
+   LOGIN
+====================== */
 const PASSWORD = "Habitat2026";
-const EXPIRATION_TIME = 4 * 60 * 60 * 1000;
 
-/* ================= LOGIN ================= */
 function login(){
   const pass = document.getElementById("pass").value;
 
-  if(pass !== PASSWORD){
-    document.getElementById("msg").innerText = "❌ Incorrecto";
-    return;
+  if(pass === PASSWORD){
+    document.getElementById("loginBox").style.display = "none";
+    document.querySelector(".container").style.display = "block";
+    loadEdificios();
+    cargar();
   }
-
-  localStorage.setItem("auth", pass);
-  localStorage.setItem("auth_time", Date.now());
-
-  iniciarAdmin();
 }
 
-/* ================= AUTH ================= */
-function checkAuth(){
-  const auth = localStorage.getItem("auth");
-  const time = localStorage.getItem("auth_time");
-
-  if(!auth || !time) return false;
-  if(Date.now() - time > EXPIRATION_TIME){
-    localStorage.clear();
-    return false;
-  }
-  return true;
+/* ======================
+   MENU FIX
+====================== */
+function menuAdmin(){
+  document.getElementById("menuBox").classList.add("show");
 }
 
-/* ================= INIT ================= */
-function iniciarAdmin(){
-  document.getElementById("loginBox").style.display = "none";
-  document.querySelector(".container").style.display = "block";
-
-  // 🔥 ACTIVA BOTONES OCULTOS
-  document.querySelectorAll("button").forEach(b=>{
-    b.style.display = "inline-block";
-  });
-
-  loadEdificios();
-  cargar();
+function cerrarMenu(){
+  document.getElementById("menuBox").classList.remove("show");
 }
 
-/* ================= EDIFICIOS ================= */
+/* ======================
+   MODALES FIX
+====================== */
+function mostrarFormulario(){
+  document.getElementById("formulario").style.display = "flex";
+}
+
+function cerrarFormulario(){
+  document.getElementById("formulario").style.display = "none";
+}
+
+function abrirPermisos(){
+  document.getElementById("permisoBox").style.display = "flex";
+}
+
+function cerrarPermisos(){
+  document.getElementById("permisoBox").style.display = "none";
+}
+
+/* ======================
+   EDIFICIOS
+====================== */
 async function loadEdificios(){
 
   const res = await fetch("/admin/edificios", {
-    headers:{Authorization:localStorage.getItem("auth")}
+    headers: { "Authorization": PASSWORD }
   });
 
   const data = await res.json();
@@ -205,18 +279,20 @@ async function loadEdificios(){
   });
 }
 
-/* ================= TABLA ================= */
+/* ======================
+   TABLA
+====================== */
 async function cargar(){
 
-  let e = document.getElementById("edificio").value;
-  let c = document.getElementById("cedula").value;
+  const e = document.getElementById("edificio").value;
+  const c = document.getElementById("cedula").value;
 
   let url = "/admin/registros?";
   if(e) url += "edificio_id="+e+"&";
   if(c) url += "cedula="+c;
 
   const res = await fetch(url, {
-    headers:{Authorization:localStorage.getItem("auth")}
+    headers: { "Authorization": PASSWORD }
   });
 
   const data = await res.json();
@@ -225,80 +301,112 @@ async function cargar(){
   t.innerHTML = "";
 
   data.forEach(r=>{
-    const fecha = new Date(r.fecha_hora).toLocaleString("es-CO");
-
     t.innerHTML += `
       <tr>
         <td>${r.id}</td>
         <td>${r.nombre}</td>
         <td>${r.cedula}</td>
-        <td>${r.edificio_nombre || r.edificio}</td>
+        <td>${r.edificio_nombre}</td>
         <td>${r.rol}</td>
         <td>${r.tipo_registro}</td>
-        <td>${fecha}</td>
+        <td>${new Date(r.fecha_hora).toLocaleString()}</td>
         <td>${r.observacion || "-"}</td>
       </tr>
     `;
   });
 }
 
-/* ================= PERSONA ================= */
-function mostrarFormulario(){
-  const f = document.getElementById("formulario");
-  if(f) f.style.display = "flex";
-}
+/* ======================
+   USUARIO
+====================== */
+async function crearUsuario(){
 
-function cerrarFormulario(){
-  const f = document.getElementById("formulario");
-  if(f) f.style.display = "none";
-}
+  const nombre = document.getElementById("nombreNuevo").value;
+  const cedula = document.getElementById("cedulaNueva").value;
+  const rol_id = document.getElementById("rolNuevo").value;
+  const edificio = document.getElementById("edificioNuevo").value;
 
-/* ================= EDIFICIO ================= */
-function mostrarFormEdificio(){
-  const nombre = prompt("Nombre edificio");
-  if(!nombre) return;
-
-  fetch("/admin/agregar-edificio", {
-    method:"POST",
-    headers:{
-      "Content-Type":"application/json",
-      Authorization:localStorage.getItem("auth")
+  await fetch("/admin/crear-usuario", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": PASSWORD
     },
-    body:JSON.stringify({nombre})
+    body: JSON.stringify({
+      nombre, cedula, rol_id,
+      edificios: [edificio]
+    })
+  });
+
+  alert("Usuario creado");
+  cerrarFormulario();
+}
+
+/* ======================
+   PERMISOS
+====================== */
+async function asignarPermiso(){
+
+  const cedula = document.getElementById("cedulaPermiso").value;
+  const edificio_id = document.getElementById("edificioPermiso").value;
+
+  await fetch("/admin/asignar-edificio", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": PASSWORD
+    },
+    body: JSON.stringify({ cedula, edificio_id })
+  });
+
+  alert("Permiso dado");
+}
+
+async function quitarPermiso(){
+
+  const cedula = document.getElementById("cedulaPermiso").value;
+  const edificio_id = document.getElementById("edificioPermiso").value;
+
+  await fetch("/admin/quitar-permiso", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": PASSWORD
+    },
+    body: JSON.stringify({ cedula, edificio_id })
+  });
+
+  alert("Permiso quitado");
+}
+
+/* ======================
+   EXTRAS
+====================== */
+function editarUsuario(){
+  alert("Función activa backend");
+}
+
+function eliminarRegistro(){
+  const id = prompt("ID");
+  fetch(`/admin/eliminar-registro/${id}`, {
+    method: "DELETE",
+    headers: { "Authorization": PASSWORD }
+  }).then(()=>cargar());
+}
+
+function dashboard(){
+  fetch("/admin/dashboard", {
+    headers: { "Authorization": PASSWORD }
   })
   .then(r=>r.json())
   .then(d=>{
-    alert(d.mensaje);
-    loadEdificios();
+    alert(JSON.stringify(d,null,2));
   });
 }
 
-/* ================= PERMISOS FIX ================= */
-function abrirPermisos(){
-  const box = document.getElementById("permisoBox");
-  if(box) box.style.display = "flex";
+function exportarExcel(){
+  window.location = "/admin/exportar-excel-mensual?mes="+(new Date().getMonth()+1);
 }
-
-/* ================= EXPORT ================= */
-async function exportarExcel(){
-
-  const mes = new Date().getMonth()+1;
-
-  const res = await fetch(`/admin/exportar-excel-mensual?mes=${mes}`, {
-    headers:{Authorization:localStorage.getItem("auth")}
-  });
-
-  const blob = await res.blob();
-  const url = URL.createObjectURL(blob);
-
-  const a = document.createElement("a");
-  a.href=url;
-  a.download="reporte.xlsx";
-  a.click();
-}
-
-/* ================= INIT ================= */
-if(checkAuth()) iniciarAdmin();
 
 </script>
 
