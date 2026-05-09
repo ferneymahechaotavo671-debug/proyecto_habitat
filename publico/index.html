@@ -123,8 +123,17 @@ text-align:center;
 // =========================
 // QR PARAM
 // =========================
-const params = new URLSearchParams(window.location.search);
-const codigo = params.get("edificio");
+const params = new URLSearchParams(location.search);
+
+let codigo = params.get("edificio");
+
+if (codigo) {
+  codigo = codigo
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, "")
+    .replace(/[^a-z0-9]/g, "");
+}
 
 // =========================
 // DEVICE ID (LISTO ANTI-SUPLANTACIÓN)
