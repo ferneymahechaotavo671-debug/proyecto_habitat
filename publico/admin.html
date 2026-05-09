@@ -6,8 +6,6 @@
 <title>Admin</title>
 
 <style>
-
-/* ===== RESET ===== */
 * {
   margin: 0;
   padding: 0;
@@ -15,7 +13,6 @@
   font-family: Arial, Helvetica, sans-serif;
 }
 
-/* ===== FONDO PRO ===== */
 body {
   background: linear-gradient(135deg, #0f3d2e, #1f7a63, #38b48b);
   min-height: 100vh;
@@ -25,7 +22,7 @@ body {
   padding: 30px;
 }
 
-/* ===== LOGIN ===== */
+/* LOGIN */
 #loginBox {
   position: fixed;
   inset: 0;
@@ -44,7 +41,7 @@ body {
   text-align: center;
 }
 
-/* ===== CONTENEDOR ===== */
+/* CONTENEDOR */
 .container {
   background: rgba(255,255,255,0.95);
   padding: 25px;
@@ -54,15 +51,14 @@ body {
   display: none;
 }
 
-/* ===== INPUTS ===== */
+/* INPUTS */
 select, input {
   padding: 11px;
   border-radius: 12px;
   border: 1px solid #ddd;
-  flex: 1;
 }
 
-/* ===== BOTONES ===== */
+/* BOTONES */
 button {
   padding: 11px 16px;
   border: none;
@@ -72,7 +68,7 @@ button {
   cursor: pointer;
 }
 
-/* ===== TABLA (NO TOCADA) ===== */
+/* TABLA (NO TOCADA) */
 table {
   width: 100%;
   border-collapse: collapse;
@@ -93,7 +89,6 @@ td {
   text-align: center;
   border-bottom: 1px solid #eee;
 }
-
 </style>
 </head>
 
@@ -131,7 +126,14 @@ td {
 <table>
 <thead>
 <tr>
-<th>ID</th><th>Nombre</th><th>Cédula</th><th>Edificio</th><th>Rol</th><th>Tipo</th><th>Fecha</th><th>Obs</th>
+<th>ID</th>
+<th>Nombre</th>
+<th>Cédula</th>
+<th>Edificio</th>
+<th>Rol</th>
+<th>Tipo</th>
+<th>Fecha</th>
+<th>Observación</th>
 </tr>
 </thead>
 <tbody id="tabla"></tbody>
@@ -142,14 +144,14 @@ td {
 <script>
 
 const PASSWORD = "Habitat2026";
-const EXPIRATION = 4 * 60 * 60 * 1000;
+const EXPIRATION_TIME = 4 * 60 * 60 * 1000;
 
 /* ================= LOGIN ================= */
 function login(){
   const pass = document.getElementById("pass").value;
 
   if(pass !== PASSWORD){
-    alert("❌ Incorrecto");
+    document.getElementById("msg").innerText = "❌ Incorrecto";
     return;
   }
 
@@ -161,11 +163,11 @@ function login(){
 
 /* ================= AUTH ================= */
 function checkAuth(){
-  const a = localStorage.getItem("auth");
-  const t = localStorage.getItem("auth_time");
+  const auth = localStorage.getItem("auth");
+  const time = localStorage.getItem("auth_time");
 
-  if(!a || !t) return false;
-  if(Date.now() - t > EXPIRATION){
+  if(!auth || !time) return false;
+  if(Date.now() - time > EXPIRATION_TIME){
     localStorage.clear();
     return false;
   }
@@ -177,12 +179,18 @@ function iniciarAdmin(){
   document.getElementById("loginBox").style.display = "none";
   document.querySelector(".container").style.display = "block";
 
+  // 🔥 ACTIVA BOTONES OCULTOS
+  document.querySelectorAll("button").forEach(b=>{
+    b.style.display = "inline-block";
+  });
+
   loadEdificios();
   cargar();
 }
 
 /* ================= EDIFICIOS ================= */
 async function loadEdificios(){
+
   const res = await fetch("/admin/edificios", {
     headers:{Authorization:localStorage.getItem("auth")}
   });
@@ -195,8 +203,6 @@ async function loadEdificios(){
   data.forEach(e=>{
     sel.innerHTML += `<option value="${e.id}">${e.nombre}</option>`;
   });
-
-  cargarEdificiosFormulario();
 }
 
 /* ================= TABLA ================= */
@@ -230,7 +236,7 @@ async function cargar(){
         <td>${r.rol}</td>
         <td>${r.tipo_registro}</td>
         <td>${fecha}</td>
-        <td>-</td>
+        <td>${r.observacion || "-"}</td>
       </tr>
     `;
   });
@@ -238,35 +244,13 @@ async function cargar(){
 
 /* ================= PERSONA ================= */
 function mostrarFormulario(){
-  document.getElementById("formulario").style.display="flex";
+  const f = document.getElementById("formulario");
+  if(f) f.style.display = "flex";
 }
 
 function cerrarFormulario(){
-  document.getElementById("formulario").style.display="none";
-}
-
-/* ================= CREAR USUARIO ================= */
-async function crearUsuario(){
-
-  const nombre = document.getElementById("nombreNuevo").value;
-  const cedula = document.getElementById("cedulaNueva").value;
-  const rol_id = document.getElementById("rolNuevo").value;
-  const edificio = document.getElementById("edificioNuevo").value;
-
-  const res = await fetch("/admin/crear-usuario", {
-    method:"POST",
-    headers:{
-      "Content-Type":"application/json",
-      Authorization:localStorage.getItem("auth")
-    },
-    body:JSON.stringify({
-      nombre, cedula, rol_id, edificios:[edificio]
-    })
-  });
-
-  const data = await res.json();
-  alert(data.mensaje);
-  cerrarFormulario();
+  const f = document.getElementById("formulario");
+  if(f) f.style.display = "none";
 }
 
 /* ================= EDIFICIO ================= */
@@ -281,39 +265,18 @@ function mostrarFormEdificio(){
       Authorization:localStorage.getItem("auth")
     },
     body:JSON.stringify({nombre})
-  }).then(r=>r.json())
+  })
+  .then(r=>r.json())
   .then(d=>{
     alert(d.mensaje);
     loadEdificios();
   });
 }
 
-/* ================= PERMISOS ================= */
+/* ================= PERMISOS FIX ================= */
 function abrirPermisos(){
-  document.getElementById("permisoBox").style.display="flex";
-  cargarEdificiosPermisos();
-}
-
-function cerrarPermisos(){
-  document.getElementById("permisoBox").style.display="none";
-}
-
-async function cargarEdificiosPermisos(){
-
-  const res = await fetch("/admin/edificios", {
-    headers:{Authorization:localStorage.getItem("auth")}
-  });
-
-  const data = await res.json();
-
-  const sel = document.getElementById("edificioPermiso");
-  if(!sel) return;
-
-  sel.innerHTML="";
-
-  data.forEach(e=>{
-    sel.innerHTML += `<option value="${e.id}">${e.nombre}</option>`;
-  });
+  const box = document.getElementById("permisoBox");
+  if(box) box.style.display = "flex";
 }
 
 /* ================= EXPORT ================= */
@@ -334,14 +297,10 @@ async function exportarExcel(){
   a.click();
 }
 
-/* ================= START ================= */
+/* ================= INIT ================= */
 if(checkAuth()) iniciarAdmin();
 
 </script>
-
-<!-- MODALES ORIGINALES (NO TOCADOS) -->
-<div id="formulario"></div>
-<div id="permisoBox"></div>
 
 </body>
 </html>

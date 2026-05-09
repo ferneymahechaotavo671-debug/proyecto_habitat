@@ -10,13 +10,14 @@ const PORT = process.env.PORT || 8080;
 const PASSWORD_ADMIN = "Habitat2026";
 
 // =========================
-// MIDDLEWARE BASE
+// MIDDLEWARE
 // =========================
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(express.static(path.join(__dirname, "publico")));
 
 // =========================
-// 🔐 ADMIN MIDDLEWARE
+// AUTH ADMIN
 // =========================
 function validarAdmin(req, res, next) {
   const auth = req.headers.authorization;
@@ -27,11 +28,6 @@ function validarAdmin(req, res, next) {
 
   next();
 }
-
-// =========================
-// ESTATICOS
-// =========================
-app.use(express.static(path.join(__dirname, "publico")));
 
 // =========================
 // MYSQL
@@ -45,12 +41,12 @@ const db = mysql.createConnection({
 });
 
 db.connect(err => {
-  if (err) console.error("Error DB:", err);
-  else console.log("✅ MySQL conectado");
+  if (err) return console.error("Error DB:", err);
+  console.log("✅ MySQL conectado");
 });
 
 // =========================
-// LOGIN ADMIN
+// LOGIN
 // =========================
 app.post("/login", (req, res) => {
   const { password } = req.body;
@@ -63,7 +59,7 @@ app.post("/login", (req, res) => {
 });
 
 // =========================
-// REGISTRO QR + SEGURIDAD
+// REGISTRO QR (CORREGIDO SIN ROMPER FRONT)
 // =========================
 app.post("/registro", (req, res) => {
 
@@ -78,6 +74,8 @@ app.post("/registro", (req, res) => {
     .replace(/[^a-z0-9]/g, "");
 
   let deviceId = req.body.deviceId;
+  let userAgent = req.body.userAgent;
+  let observacion = req.body.observacion || "";
 
   if (!cedula || !codigoEdificio || !deviceId) {
     return res.status(400).json({ mensaje: "Datos incompletos ❌" });
@@ -92,51 +90,34 @@ app.post("/registro", (req, res) => {
     (err, eds) => {
 
       if (err) return res.status(500).json({ mensaje: "Error servidor ❌" });
-
-      if (eds.length === 0) {
-        return res.json({ mensaje: "QR inválido ❌" });
-      }
+      if (eds.length === 0) return res.json({ mensaje: "QR inválido ❌" });
 
       const edificio = eds[0];
 
       // =========================
-      // USUARIO + ROL + PERMISOS
+      // USUARIO + ROLES + PERMISOS
       // =========================
       db.query(
-        `
-        SELECT 
+        `SELECT 
           u.id,
           u.nombre,
           u.cedula,
           r.nombre AS rol
-        FROM usuarios u
-        JOIN roles r ON u.rol_id = r.id
-        LEFT JOIN usuario_edificio ue ON ue.usuario_id = u.id
-        WHERE u.cedula = ?
-        AND (
-          r.nombre = 'admin'
-          OR r.nombre = 'servicios'
-          OR r.nombre = 'todero'
-          OR ue.edificio_id = ?
-        )
-        `,
+         FROM usuarios u
+         JOIN roles r ON u.rol_id = r.id
+         JOIN usuario_edificio ue ON ue.usuario_id = u.id
+         WHERE u.cedula = ?
+         AND ue.edificio_id = ?`,
         [cedula, edificio.id],
         (err, users) => {
 
           if (err) return res.status(500).json({ mensaje: "Error servidor ❌" });
-
-          if (users.length === 0) {
-            return res.json({ mensaje: "No autorizado 🚫" });
-          }
+          if (users.length === 0) return res.json({ mensaje: "No autorizado 🚫" });
 
           const user = users[0];
 
-          if (!user || !user.rol) {
-            return res.status(403).json({ mensaje: "Usuario inválido 🚫" });
-          }
-
           // =========================
-          // DISPOSITIVO (ANTI SUPLANTACIÓN)
+          // DISPOSITIVO
           // =========================
           db.query(
             "SELECT * FROM dispositivos WHERE cedula=? AND edificio_id=?",
@@ -149,9 +130,9 @@ app.post("/registro", (req, res) => {
 
                 const savedDevice = devices[0].device_id;
 
+                // 🔥 FIX IMPORTANTE
                 if (savedDevice !== deviceId && user.rol !== "admin") {
-
-                  console.log("🚨 SUPLANTACIÓN:", { cedula, deviceId, savedDevice });
+                  console.log("🚨 SUPLANTACIÓN:", cedula);
 
                   return res.status(403).json({
                     mensaje: "🚫 Dispositivo no autorizado"
@@ -159,7 +140,6 @@ app.post("/registro", (req, res) => {
                 }
               }
 
-              // guardar dispositivo si no existe
               if (devices.length === 0) {
                 db.query(
                   "INSERT INTO dispositivos (cedula, device_id, edificio_id) VALUES (?, ?, ?)",
@@ -168,15 +148,13 @@ app.post("/registro", (req, res) => {
               }
 
               // =========================
-              // REGISTRO ENTRADA / SALIDA
+              // REGISTRO ENTRADA/SALIDA
               // =========================
               db.query(
-                `
-                SELECT * FROM registros
-                WHERE cedula=? AND edificio_id=?
-                ORDER BY fecha_hora DESC
-                LIMIT 1
-                `,
+                `SELECT * FROM registros
+                 WHERE cedula=? AND edificio_id=?
+                 ORDER BY fecha_hora DESC
+                 LIMIT 1`,
                 [cedula, edificio.id],
                 (err, last) => {
 
@@ -189,24 +167,21 @@ app.post("/registro", (req, res) => {
                   }
 
                   db.query(
-                    `
-                    INSERT INTO registros
-                    (nombre, cedula, edificio, tipo_registro, edificio_id, rol)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                    `,
+                    `INSERT INTO registros
+                    (nombre, cedula, edificio, tipo_registro, edificio_id, rol, observacion)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)`,
                     [
                       user.nombre,
                       cedula,
                       edificio.nombre,
                       tipo,
                       edificio.id,
-                      user.rol
+                      user.rol,
+                      observacion
                     ],
                     (err) => {
 
-                      if (err) {
-                        return res.status(500).json({ mensaje: "Error registro ❌" });
-                      }
+                      if (err) return res.status(500).json({ mensaje: "Error registro ❌" });
 
                       return res.json({
                         mensaje: `${tipo} registrada ✅`,
@@ -218,56 +193,6 @@ app.post("/registro", (req, res) => {
               );
             }
           );
-        }
-      );
-    }
-  );
-});
-
-// =========================
-// PERMISOS
-// =========================
-app.post("/admin/quitar-permiso", validarAdmin, (req, res) => {
-
-  const { cedula, edificio_id } = req.body;
-
-  db.query(
-    `
-    DELETE FROM usuario_edificio 
-    WHERE usuario_id = (SELECT id FROM usuarios WHERE cedula = ?)
-    AND edificio_id = ?
-    `,
-    [cedula, edificio_id],
-    (err) => {
-      if (err) return res.status(500).json({ mensaje: "Error ❌" });
-      res.json({ mensaje: "Permiso eliminado ✅" });
-    }
-  );
-});
-
-app.post("/admin/asignar-edificio", validarAdmin, (req, res) => {
-
-  const { cedula, edificio_id } = req.body;
-
-  db.query(
-    "SELECT id FROM usuarios WHERE cedula = ?",
-    [cedula],
-    (err, users) => {
-
-      if (err) return res.status(500).json({ mensaje: "Error ❌" });
-
-      if (users.length === 0) {
-        return res.status(404).json({ mensaje: "Usuario no existe ❌" });
-      }
-
-      const usuario_id = users[0].id;
-
-      db.query(
-        "INSERT IGNORE INTO usuario_edificio (usuario_id, edificio_id) VALUES (?, ?)",
-        [usuario_id, edificio_id],
-        (err) => {
-          if (err) return res.status(500).json({ mensaje: "Error ❌" });
-          res.json({ mensaje: "Permiso asignado ✅" });
         }
       );
     }
@@ -300,7 +225,7 @@ app.get("/admin/registros", validarAdmin, (req, res) => {
     params.push(cedula);
   }
 
-  sql += " ORDER BY r.fecha_hora ASC";
+  sql += " ORDER BY r.fecha_hora DESC";
 
   db.query(sql, params, (err, data) => {
     if (err) return res.status(500).json(err);
@@ -316,6 +241,129 @@ app.get("/admin/edificios", validarAdmin, (req, res) => {
     if (err) return res.status(500).json(err);
     res.json(data);
   });
+});
+
+// =========================
+// AGREGAR EDIFICIO
+// =========================
+app.post("/admin/agregar-edificio", validarAdmin, (req, res) => {
+
+  const { nombre } = req.body;
+
+  const codigo_qr = nombre
+    .toLowerCase()
+    .trim()
+    .replace(/\./g, "")
+    .replace(/\s+/g, "")
+    .replace(/[^a-z0-9]/g, "");
+
+  db.query(
+    "INSERT INTO edificios (nombre, codigo_qr) VALUES (?, ?)",
+    [nombre, codigo_qr],
+    (err) => {
+      if (err) return res.status(500).json({ mensaje: "Error ❌" });
+      res.json({ mensaje: "Edificio agregado ✅" });
+    }
+  );
+});
+
+// =========================
+// CREAR USUARIO (NO TOCADO)
+// =========================
+app.post("/admin/crear-usuario", validarAdmin, (req, res) => {
+
+  let { nombre, cedula, rol_id, edificios } = req.body;
+
+  if (!Array.isArray(edificios)) {
+    edificios = edificios ? [edificios] : [];
+  }
+
+  db.query(
+    "SELECT id FROM usuarios WHERE cedula = ?",
+    [cedula],
+    (err, rows) => {
+
+      let usuarioId;
+
+      const asignar = () => {
+
+        if (edificios.length === 0) {
+
+          db.query("SELECT id FROM edificios", (err, eds) => {
+
+            const values = eds.map(e => [usuarioId, e.id]);
+
+            db.query(
+              "INSERT INTO usuario_edificio (usuario_id, edificio_id) VALUES ?",
+              [values],
+              () => res.json({ mensaje: "Usuario creado con todos los edificios ✅" })
+            );
+          });
+
+        } else {
+
+          const values = edificios.map(id => [usuarioId, id]);
+
+          db.query(
+            "INSERT INTO usuario_edificio (usuario_id, edificio_id) VALUES ?",
+            [values],
+            () => res.json({ mensaje: "Usuario creado correctamente ✅" })
+          );
+        }
+      };
+
+      if (rows.length > 0) {
+        usuarioId = rows[0].id;
+        return asignar();
+      }
+
+      db.query(
+        "INSERT INTO usuarios (nombre, cedula, rol_id) VALUES (?, ?, ?)",
+        [nombre, cedula, rol_id],
+        (err, result) => {
+          usuarioId = result.insertId;
+          asignar();
+        }
+      );
+    }
+  );
+});
+
+// =========================
+// EXCEL
+// =========================
+app.get("/admin/exportar-excel-mensual", validarAdmin, (req, res) => {
+
+  const mes = req.query.mes;
+
+  db.query(
+    "SELECT * FROM registros WHERE MONTH(fecha_hora)=?",
+    [mes],
+    async (err, data) => {
+
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet("Reporte");
+
+      ws.columns = [
+        { header: "ID", key: "id" },
+        { header: "Nombre", key: "nombre" },
+        { header: "Cédula", key: "cedula" },
+        { header: "Edificio", key: "edificio" },
+        { header: "Tipo", key: "tipo_registro" },
+        { header: "Rol", key: "rol" },
+        { header: "Observación", key: "observacion" },
+        { header: "Fecha", key: "fecha_hora" }
+      ];
+
+      data.forEach(r => ws.addRow(r));
+
+      res.setHeader("Content-Type", "application/vnd.openxmlformats");
+      res.setHeader("Content-Disposition", "attachment; filename=reporte.xlsx");
+
+      await wb.xlsx.write(res);
+      res.end();
+    }
+  );
 });
 
 // =========================
