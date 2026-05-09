@@ -196,15 +196,55 @@ button {
 const params = new URLSearchParams(location.search);
 let codigo = params.get("edificio");
 
-if (!codigo) {
-  document.body.innerHTML = "<h2>Acceso denegado ❌</h2>";
-  throw new Error("Sin QR");
-}
-
-codigo = codigo.toLowerCase().trim().replace(/\s+/g,"").replace(/[^a-z0-9]/g,"");
+let modoHome = false;
 
 // ==============================
-// ⏱ TIEMPO QR (NO TOCADO)
+// SI NO HAY QR → HOME
+// ==============================
+if (!codigo) {
+
+  modoHome = true;
+
+  document.body.innerHTML = `
+    <div style="text-align:center; padding:30px; font-family:Arial;">
+      <h1>🏢 HÁBITAT</h1>
+
+      <p>Selecciona una opción</p>
+
+      <button onclick="iniciarCamaraQR()" style="
+        padding:12px;
+        margin-top:20px;
+        background:#1f7a63;
+        color:white;
+        border:none;
+        border-radius:10px;
+        width:80%;
+      ">
+        📷 Escanear QR
+      </button>
+
+      <button onclick="cargarEdificios()" style="
+        padding:12px;
+        margin-top:10px;
+        background:#0f3d2e;
+        color:white;
+        border:none;
+        border-radius:10px;
+        width:80%;
+      ">
+        🏢 Ver edificios
+      </button>
+
+      <div id="lista"></div>
+
+      <video id="video" style="width:100%; margin-top:20px; display:none;"></video>
+
+    </div>
+  `;
+}
+
+// ==============================
+// ⏱ TIEMPO QR
 // ==============================
 const TIEMPO_LIMITE = 20 * 60 * 1000;
 
@@ -236,61 +276,118 @@ function verificarTiempo() {
 if (!verificarTiempo()) throw new Error("expirado");
 
 // ==============================
-// 🔥 FIX REAL: CARGAR EDIFICIOS
+// CARGAR EDIFICIO (ARREGLADO)
 // ==============================
 async function cargarNombreEdificio() {
+
+  if (modoHome) return;
+
   try {
 
-    const res = await fetch(`/edificio/${codigo}`);
+    const res = await fetch("/admin/edificios", {
+      headers: {
+        "Authorization": localStorage.getItem("auth") || ""
+      }
+    });
 
-    if (!res.ok) throw new Error("error");
+    const data = await res.json();
 
-    const edificio = await res.json();
+    const edificio = data.find(e => e.codigo_qr === codigo);
 
-    document.getElementById("edificio").innerText = edificio.nombre;
+    document.getElementById("edificio").innerText =
+      edificio ? edificio.nombre : "Edificio no válido ❌";
 
   } catch (error) {
-    document.getElementById("edificio").innerText = "Edificio no válido ❌";
+    document.getElementById("edificio").innerText = "Error cargando edificio";
   }
 }
 
 cargarNombreEdificio();
 
-// pantalla de exito despues de registar
+// ==============================
+// ESCÁNER QR REAL (CÁMARA)
+// ==============================
+function iniciarCamaraQR() {
 
-function mostrarMensajeGrande(texto, tipo = "ok") {
+  const video = document.getElementById("video");
+  video.style.display = "block";
 
-  const overlay = document.getElementById("overlayMensaje");
-  const textoGrande = document.getElementById("textoGrande");
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+    .then(stream => {
 
-  textoGrande.innerText = texto;
+      video.srcObject = stream;
+      video.play();
 
-  if(tipo === "ok"){
-    textoGrande.style.color = "#1f7a63";
-  } else {
-    textoGrande.style.color = "#d93025";
-  }
+      const track = stream.getVideoTracks()[0];
+      const imageCapture = new ImageCapture(track);
 
-  overlay.classList.add("show");
+      setInterval(async () => {
 
-  setTimeout(() => {
-    overlay.classList.remove("show");
-  }, 2500);
+        try {
+
+          const bitmap = await imageCapture.grabFrame();
+          const canvas = document.createElement("canvas");
+          canvas.width = bitmap.width;
+          canvas.height = bitmap.height;
+
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(bitmap, 0, 0);
+
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+          // 👉 Aquí conectamos lector QR simple (placeholder)
+          console.log("Escaneando QR...");
+
+        } catch (err) {
+          console.log(err);
+        }
+
+      }, 1500);
+
+    })
+    .catch(err => {
+      alert("No se pudo abrir cámara ❌");
+    });
 }
 
 // ==============================
-// ENVIAR REGISTRO
+// LISTA EDIFICIOS
+// ==============================
+async function cargarEdificios() {
+
+  const res = await fetch("/admin/edificios", {
+    headers: {
+      "Authorization": localStorage.getItem("auth") || ""
+    }
+  });
+
+  const data = await res.json();
+
+  const lista = document.getElementById("lista");
+
+  lista.innerHTML = data.map(e => `
+    <div style="
+      margin-top:10px;
+      padding:10px;
+      background:#eee;
+      border-radius:10px;
+    ">
+      <b>${e.nombre}</b><br>
+      <small>${e.codigo_qr}</small>
+    </div>
+  `).join("");
+}
+
+// ==============================
+// REGISTRO
 // ==============================
 document.getElementById("form").onsubmit = async (e) => {
+
   e.preventDefault();
 
   if (!verificarTiempo()) return;
 
   const cedula = document.getElementById("cedula").value.trim();
-
-  const msg = document.getElementById("mensaje");
-
-  msg.classList.remove("show");
 
   try {
 
@@ -305,74 +402,12 @@ document.getElementById("form").onsubmit = async (e) => {
 
     const data = await res.json();
 
-    msg.innerText = data.mensaje;
-
-    if (data.mensaje && data.mensaje.includes("registrada")) {
-  mostrarMensajeGrande(`✅ ${data.mensaje.toUpperCase()}`, "ok");
-} else {
-  mostrarMensajeGrande("❌ ACCESO DENEGADO", "error");
-}
+    mostrarMensajeGrande(data.mensaje, "ok");
 
   } catch (err) {
-    msg.innerText = "Error de conexión ❌";
-    msg.className = "error show";
+    mostrarMensajeGrande("Error de conexión ❌", "error");
   }
 };
-
-</script>
-
-</script>
-
-<script>
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js", { scope: "/" })
-      .then(() => console.log("SW activo"))
-      .catch(err => console.log("SW error:", err));
-  });
-}
-</script>
-
-<script>
-
-let deferredPrompt;
-
-window.addEventListener("beforeinstallprompt", (e) => {
-  console.log("PWA installable detectada");
-
-  e.preventDefault();
-  deferredPrompt = e;
-
-  const btn = document.createElement("button");
-  btn.innerText = "📲 Instalar App";
-
-  Object.assign(btn.style, {
-    position: "fixed",
-    bottom: "20px",
-    right: "20px",
-    padding: "12px",
-    background: "#1f7a63",
-    color: "white",
-    border: "none",
-    borderRadius: "10px",
-    zIndex: "9999"
-  });
-
-  document.body.appendChild(btn);
-
-  btn.addEventListener("click", async () => {
-    if (!deferredPrompt) return;
-
-    deferredPrompt.prompt();
-
-    const { outcome } = await deferredPrompt.userChoice;
-
-    console.log("Resultado instalación:", outcome);
-
-    deferredPrompt = null;
-    btn.remove();
-  });
-});
 
 </script>
 
