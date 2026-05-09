@@ -125,6 +125,9 @@ color:#0f3d2e;
 </form>
 
 <button onclick="camara()">📷 Escanear QR</button>
+<button id="installBtn" style="display:none;">
+📲 Instalar App
+</button>
 
 <div id="reader"></div>
 
@@ -279,6 +282,37 @@ setTimeout(()=>{
 estado.innerText = "Esperando validación...";
 estado.className = "";
 },2500);
+
+});
+
+// =========================
+// INSTALAR APP PWA
+// =========================
+let deferredPrompt;
+
+window.addEventListener("beforeinstallprompt", (e)=>{
+
+e.preventDefault();
+
+deferredPrompt = e;
+
+const btn = document.getElementById("installBtn");
+
+btn.style.display = "block";
+
+});
+
+document.getElementById("installBtn").addEventListener("click", async ()=>{
+
+if(!deferredPrompt) return;
+
+deferredPrompt.prompt();
+
+await deferredPrompt.userChoice;
+
+deferredPrompt = null;
+
+document.getElementById("installBtn").style.display = "none";
 
 });
 
