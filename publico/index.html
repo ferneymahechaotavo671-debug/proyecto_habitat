@@ -334,17 +334,11 @@ document.getElementById("form").onsubmit = async (e) => {
 
 <script>
 if ("serviceWorker" in navigator) {
-
-  navigator.serviceWorker
-    .register("/sw.js")
-
-    .then(() => {
-      console.log("Service Worker registrado ✅");
-    })
-
-    .catch(err => {
-      console.log("Error SW", err);
-    });
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js", { scope: "/" })
+      .then(() => console.log("SW activo"))
+      .catch(err => console.log("SW error:", err));
+  });
 }
 </script>
 
