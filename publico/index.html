@@ -108,10 +108,20 @@ border-radius:20px;
   </div>
 </div>
 
+<script src="https://unpkg.com/html5-qrcode"></script>
+
 <script>
 
 // =========================
-// 🔐 DEVICE ID (ANTI-SUPLANTACIÓN)
+// 📌 PARAMS QR
+// =========================
+const params = new URLSearchParams(window.location.search);
+const codigo = params.get("edificio");
+
+let modoHome = !codigo;
+
+// =========================
+// 🔐 DEVICE ID (ANTI-SUPLANTACIÓN BASE)
 // =========================
 function getDeviceId(){
   let id = localStorage.getItem("device_id");
@@ -125,71 +135,131 @@ function getDeviceId(){
 }
 
 // =========================
-// QR
+// ⏱ CONTROL QR
 // =========================
-const params = new URLSearchParams(location.search);
-let codigo = params.get("edificio");
+function verificarTiempo(){
 
-// =========================
-// TIEMPO QR
-// =========================
-const LIMITE = 20 * 60 * 1000;
+  const LIMITE = 20 * 60 * 1000;
+  const inicio = Number(localStorage.getItem("inicioQR"));
 
-let inicio = localStorage.getItem("inicioQR");
+  if(!inicio) return true;
 
-if(!inicio){
-  inicio = Date.now();
-  localStorage.setItem("inicioQR", inicio);
-}
-
-function verificar(){
   if(Date.now() - inicio > LIMITE){
-    document.body.innerHTML = "<h2>QR expirado</h2>";
+
+    localStorage.removeItem("inicioQR");
+
+    document.body.innerHTML = `
+      <div style="text-align:center;font-family:Arial;">
+        <h2>⏰ QR expirado</h2>
+        <p>Vuelve a escanear el código</p>
+      </div>
+    `;
+
     return false;
   }
+
   return true;
 }
 
-if(!verificar()) throw new Error();
+// activar solo si hay QR
+if(codigo){
+  if(!localStorage.getItem("inicioQR")){
+    localStorage.setItem("inicioQR", Date.now());
+  }
 
-// =========================
-// CARGAR EDIFICIO
-// =========================
-async function cargarEdificio(){
-
-  if(!codigo) return;
-
-  const res = await fetch("/admin/edificios", {
-    headers:{
-      "Authorization": localStorage.getItem("auth") || ""
-    }
-  });
-
-  const data = await res.json();
-
-  const ed = data.find(e => e.codigo_qr === codigo);
-
-  document.getElementById("edificio").innerText =
-    ed ? ed.nombre : "Edificio inválido";
+  if(!verificarTiempo()) throw new Error("QR expirado");
 }
 
-cargarEdificio();
+// =========================
+// 🏠 HOME MODE
+// =========================
+if(modoHome){
+
+  document.body.innerHTML = `
+    <div style="text-align:center;padding:30px;font-family:Arial;">
+      <h1>🏢 HÁBITAT</h1>
+
+      <button onclick="iniciarCamaraQR()" style="
+        padding:12px;
+        margin-top:20px;
+        background:#1f7a63;
+        color:white;
+        border:none;
+        border-radius:10px;
+        width:80%;
+      ">
+        📷 Escanear QR
+      </button>
+
+      <div id="reader" style="margin-top:20px;"></div>
+    </div>
+  `;
+
+  setTimeout(mostrarBotonInstalar, 300);
+}
 
 // =========================
-// QR CAMERA
+// 📲 PWA INSTALL BUTTON
+// =========================
+let deferredPrompt;
+
+function mostrarBotonInstalar(){
+
+  const btn = document.createElement("button");
+
+  btn.innerText = "📲 Instalar App";
+
+  Object.assign(btn.style, {
+    position: "fixed",
+    bottom: "20px",
+    right: "20px",
+    padding: "12px",
+    background: "#1f7a63",
+    color: "white",
+    border: "none",
+    borderRadius: "10px",
+    zIndex: 9999
+  });
+
+  document.body.appendChild(btn);
+
+  btn.onclick = async () => {
+
+    if(!deferredPrompt){
+      alert("Instalación no disponible");
+      return;
+    }
+
+    deferredPrompt.prompt();
+    await deferredPrompt.userChoice;
+
+    deferredPrompt = null;
+    btn.remove();
+  };
+}
+
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+
+  mostrarBotonInstalar();
+});
+
+// =========================
+// 📷 ESCÁNER QR REAL
 // =========================
 function iniciarCamaraQR(){
 
   const scanner = new Html5Qrcode("reader");
 
-  Html5Qrcode.getCameras().then(devices=>{
+  Html5Qrcode.getCameras().then(devices => {
 
     const cam = devices[0].id;
 
     scanner.start(
       cam,
-      { fps:10, qrbox:250 },
-      (text)=>{
+      { fps: 10, qrbox: 250 },
+      (text) => {
 
         scanner.stop();
 
@@ -198,164 +268,42 @@ function iniciarCamaraQR(){
       }
     );
 
+  }).catch(err => {
+    alert("Error cámara ❌");
+    console.error(err);
   });
 }
 
 // =========================
-// REGISTRO + ANTI-SUPLANTACIÓN
+// 🏢 CARGAR EDIFICIO
 // =========================
-app.post("/registro", (req, res) => {
+async function cargarEdificio(){
 
-  let cedula = req.body.cedula?.toString().trim();
-  let codigoEdificio = req.body.codigoEdificio
-    ?.toString()
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, "")
-    .replace(/\./g, "")
-    .replace(/[^a-z0-9]/g, "");
+  if(!codigo) return;
 
-  let deviceId = req.body.deviceId;
+  try {
 
-  if (!cedula || !codigoEdificio || !deviceId) {
-    return res.status(400).json({ mensaje: "Datos incompletos ❌" });
-  }
-
-  // =========================
-  // 1. VALIDAR EDIFICIO
-  // =========================
-  db.query(
-    `SELECT * FROM edificios WHERE codigo_qr = ?`,
-    [codigoEdificio],
-    (err, eds) => {
-
-      if (err) return res.status(500).json({ mensaje: "Error servidor ❌" });
-
-      if (eds.length === 0) {
-        return res.json({ mensaje: "QR inválido ❌" });
+    const res = await fetch("/admin/edificios", {
+      headers: {
+        "Authorization": localStorage.getItem("auth") || ""
       }
+    });
 
-      const edificio = eds[0];
+    const data = await res.json();
 
-      // =========================
-      // 2. VALIDAR USUARIO
-      // =========================
-      db.query(
-        `SELECT u.id, u.nombre, r.nombre AS rol
-         FROM usuarios u
-         JOIN roles r ON u.rol_id = r.id
-         WHERE u.cedula = ?`,
-        [cedula],
-        (err, users) => {
+    const ed = data.find(e => e.codigo_qr === codigo);
 
-          if (err) return res.status(500).json({ mensaje: "Error servidor ❌" });
-
-          if (users.length === 0) {
-            return res.json({ mensaje: "Usuario no existe ❌" });
-          }
-
-          const user = users[0];
-
-          // =========================
-          // 3. VALIDAR DISPOSITIVO
-          // =========================
-          db.query(
-            `SELECT * FROM dispositivos 
-             WHERE cedula=? AND edificio_id=?`,
-            [cedula, edificio.id],
-            (err, devices) => {
-
-              if (err) return res.status(500).json({ mensaje: "Error servidor ❌" });
-
-              // 👉 SI YA EXISTE REGISTRO
-              if (devices.length > 0) {
-
-                const savedDevice = devices[0].device_id;
-
-                // 🚨 SUPLANTACIÓN DETECTADA
-                if (savedDevice !== deviceId) {
-
-                  // log de seguridad
-                  console.log("🚨 INTENTO DE SUPLANTACIÓN:", {
-                    cedula,
-                    deviceId,
-                    savedDevice
-                  });
-
-                  return res.status(403).json({
-                    mensaje: "🚫 Dispositivo no autorizado"
-                  });
-                }
-              }
-
-              // =========================
-              // 4. REGISTRAR DISPOSITIVO SI ES NUEVO
-              // =========================
-              if (devices.length === 0) {
-
-                db.query(
-                  `INSERT INTO dispositivos (cedula, device_id, edificio_id)
-                   VALUES (?, ?, ?)`,
-                  [cedula, deviceId, edificio.id]
-                );
-              }
-
-              // =========================
-              // 5. LÓGICA DE REGISTRO
-              // =========================
-              db.query(
-                `SELECT *
-                 FROM registros
-                 WHERE cedula=? AND edificio_id=?
-                 ORDER BY fecha_hora DESC
-                 LIMIT 1`,
-                [cedula, edificio.id],
-                (err, last) => {
-
-                  if (err) return res.status(500).json({ mensaje: "Error servidor ❌" });
-
-                  let tipo = "Entrada";
-
-                  if (last.length > 0) {
-                    tipo = last[0].tipo_registro === "Entrada" ? "Salida" : "Entrada";
-                  }
-
-                  // =========================
-                  // 6. INSERT REGISTRO
-                  // =========================
-                  db.query(
-                    `INSERT INTO registros
-                    (nombre, cedula, edificio, tipo_registro, edificio_id, rol)
-                    VALUES (?, ?, ?, ?, ?, ?)`,
-                    [
-                      user.nombre,
-                      cedula,
-                      edificio.nombre,
-                      tipo,
-                      edificio.id,
-                      user.rol
-                    ],
-                    (err) => {
-
-                      if (err) {
-                        return res.status(500).json({ mensaje: "Error registro ❌" });
-                      }
-
-                      return res.json({
-                        mensaje: `${tipo} registrada ✅`,
-                        seguridad: "OK"
-                      });
-                    }
-                  );
-                }
-              );
-            }
-          );
-        }
-      );
+    const el = document.getElementById("edificio");
+    if(el){
+      el.innerText = ed ? ed.nombre : "Edificio inválido";
     }
-  );
-});
+
+  } catch (e) {
+    console.log("Error edificio", e);
+  }
+}
+
+cargarEdificio();
 
 </script>
 
