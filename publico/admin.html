@@ -230,9 +230,16 @@ margin-top:5px;
 <div class="modal" id="userBox">
 <div class="card">
 <h3>Usuario</h3>
+
+<button onclick="userBox.style.display='none'" 
+style="background:red;float:right;width:auto;padding:5px 10px;">
+✖
+</button>
+
 <input id="nombre" placeholder="Nombre">
 <input id="cedulaU" placeholder="Cédula">
 <input id="rol" placeholder="Rol ID">
+
 <button onclick="crearUsuario()">Guardar</button>
 </div>
 </div>
@@ -241,7 +248,14 @@ margin-top:5px;
 <div class="modal" id="edificioBox">
 <div class="card">
 <h3>Edificio</h3>
+
+<button onclick="edificioBox.style.display='none'"
+style="background:red;float:right;width:auto;padding:5px 10px;">
+✖
+</button>
+
 <input id="nombreE" placeholder="Nombre">
+
 <button onclick="crearEdificio()">Guardar</button>
 </div>
 </div>
@@ -250,8 +264,15 @@ margin-top:5px;
 <div class="modal" id="permisoBox">
 <div class="card">
 <h3>Permisos</h3>
+
+<button onclick="permisoBox.style.display='none'"
+style="background:red;float:right;width:auto;padding:5px 10px;">
+✖
+</button>
+
 <input id="cedulaP" placeholder="Cédula">
 <select id="edificioP"></select>
+
 <button onclick="asignar()">Dar</button>
 <button onclick="quitar()">Quitar</button>
 </div>
