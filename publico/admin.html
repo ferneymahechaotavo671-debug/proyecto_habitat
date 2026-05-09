@@ -9,126 +9,132 @@
 
 /* ===== RESET ===== */
 * {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    font-family: Arial, Helvetica, sans-serif;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: Arial, Helvetica, sans-serif;
 }
 
-/* ===== FONDO PRO ===== */
+/* ===== FONDO ===== */
 body {
-    background: linear-gradient(135deg, #0f3d2e, #1f7a63, #38b48b);
-    min-height: 100vh;
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
-    padding: 30px;
+  background: linear-gradient(135deg, #0f3d2e, #1f7a63, #38b48b);
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 30px;
 }
 
 /* ===== LOGIN ===== */
 #loginBox {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.6);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 9999;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
 }
 
 .login-card {
-    background: white;
-    padding: 30px;
-    border-radius: 18px;
-    width: 320px;
-    text-align: center;
+  background: white;
+  padding: 30px;
+  border-radius: 18px;
+  width: 320px;
+  text-align: center;
 }
 
-/* ===== CONTENEDOR ===== */
+/* ===== PANEL ===== */
 .container {
-    background: rgba(255,255,255,0.95);
-    padding: 25px;
-    border-radius: 22px;
-    max-width: 1100px;
-    width: 100%;
-    display: none;
+  background: rgba(255,255,255,0.95);
+  padding: 25px;
+  border-radius: 22px;
+  max-width: 1100px;
+  width: 100%;
+  display: none;
 }
 
 /* ===== TITULO ===== */
 h1 {
-    text-align: center;
-    color: #0f3d2e;
-    margin-bottom: 20px;
+  text-align: center;
+  color: #0f3d2e;
+  margin-bottom: 20px;
 }
 
 /* ===== FILTROS ===== */
 .filters {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-    margin-bottom: 20px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
 }
 
 select, input {
-    padding: 11px;
-    border-radius: 12px;
-    border: 1px solid #ddd;
-    flex: 1;
+  padding: 11px;
+  border-radius: 12px;
+  border: 1px solid #ddd;
+  flex: 1;
 }
 
-/* ===== BOTONES (TU ESTILO ORIGINAL) ===== */
+/* ===== BOTONES ===== */
 button {
-    padding: 11px 16px;
-    border: none;
-    border-radius: 12px;
-    background: linear-gradient(135deg, #1f7a63, #38b48b);
-    color: white;
-    cursor: pointer;
+  padding: 11px 16px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #1f7a63, #38b48b);
+  color: white;
+  cursor: pointer;
 }
 
 /* ===== TABLA ===== */
 table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 15px;
-    background: white;
-    border-radius: 15px;
-    overflow: hidden;
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 15px;
+  background: white;
+  border-radius: 15px;
+  overflow: hidden;
 }
 
 th {
-    background: #1f7a63;
-    color: white;
-    padding: 12px;
+  background: #1f7a63;
+  color: white;
+  padding: 12px;
 }
 
 td {
-    padding: 12px;
-    text-align: center;
-    border-bottom: 1px solid #eee;
+  padding: 12px;
+  text-align: center;
+  border-bottom: 1px solid #eee;
 }
 
-/* ===== MENÚ ===== */
+/* ===== MENU TARJETAS ===== */
 #menuBox {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.6);
-    display: none;
-    justify-content: center;
-    align-items: center;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: none;
+  justify-content: center;
+  align-items: center;
 }
 
 .menu-card {
-    background: white;
-    padding: 25px;
-    border-radius: 20px;
-    width: 320px;
-    text-align: center;
+  background: white;
+  padding: 25px;
+  border-radius: 20px;
+  width: 350px;
+  display: grid;
+  gap: 10px;
+  text-align: center;
+}
+
+.menu-card h3 {
+  color: #0f3d2e;
+  margin-bottom: 10px;
 }
 
 .menu-card button {
-    width: 100%;
-    margin: 6px 0;
+  width: 100%;
 }
 
 </style>
@@ -138,12 +144,11 @@ td {
 
 <!-- LOGIN -->
 <div id="loginBox">
-    <div class="login-card">
-        <h3>🔐 Acceso Admin</h3>
-        <input type="password" id="pass">
-        <button onclick="login()">Ingresar</button>
-        <p id="msg"></p>
-    </div>
+  <div class="login-card">
+    <h3>🔐 Acceso Admin</h3>
+    <input type="password" id="pass">
+    <button onclick="login()">Ingresar</button>
+  </div>
 </div>
 
 <!-- PANEL -->
@@ -174,28 +179,31 @@ td {
 <th>Observación</th>
 </tr>
 </thead>
+
 <tbody id="tabla"></tbody>
 </table>
 
 </div>
 
-<!-- MENÚ -->
+<!-- MENÚ TARJETAS -->
 <div id="menuBox">
+
   <div class="menu-card">
 
-    <h3>⚙️ Menú Admin</h3>
+    <h3>⚙️ Panel de Control</h3>
 
-    <button onclick="mostrarFormulario()">➕ Persona</button>
-    <button onclick="mostrarFormEdificio()">🏢 Edificio</button>
+    <button onclick="mostrarFormulario()">➕ Crear Usuario</button>
+    <button onclick="mostrarFormEdificio()">🏢 Crear Edificio</button>
     <button onclick="abrirPermisos()">🔐 Permisos</button>
-    <button onclick="editarUsuario()">✏️ Editar</button>
-    <button onclick="eliminarRegistro()">🗑️ Eliminar</button>
+    <button onclick="editarUsuario()">✏️ Editar Usuario</button>
+    <button onclick="eliminarRegistro()">🗑️ Eliminar Registro</button>
     <button onclick="dashboard()">📊 Dashboard</button>
-    <button onclick="exportarExcel()">📥 Excel</button>
+    <button onclick="exportarExcel()">📥 Exportar Excel</button>
 
-    <button onclick="cerrarMenu()">Cerrar</button>
+    <button onclick="cerrarMenu()">❌ Cerrar</button>
 
   </div>
+
 </div>
 
 <!-- FORM USUARIO -->
@@ -222,169 +230,164 @@ td {
     <input id="cedulaPermiso" placeholder="Cédula">
     <select id="edificioPermiso"></select>
 
-    <button onclick="asignarPermiso()">➕ Dar</button>
-    <button onclick="quitarPermiso()">❌ Quitar</button>
+    <button onclick="asignarPermiso()">➕ Dar acceso</button>
+    <button onclick="quitarPermiso()">❌ Quitar acceso</button>
     <button onclick="cerrarPermisos()">Cerrar</button>
   </div>
 </div>
 
 <script>
 
-const PASSWORD = "Habitat2026";
+const PASS = "Habitat2026";
 
 /* ===== LOGIN ===== */
 function login(){
-    const pass = document.getElementById("pass").value;
+  if(pass.value !== PASS) return alert("❌");
 
-    if(pass !== PASSWORD){
-        msg.innerText = "❌ incorrecto";
-        return;
-    }
+  localStorage.setItem("auth", PASS);
 
-    localStorage.setItem("auth", pass);
+  loginBox.style.display="none";
+  document.querySelector(".container").style.display="block";
 
-    document.getElementById("loginBox").style.display = "none";
-    document.querySelector(".container").style.display = "block";
-
-    loadEdificios();
-    cargar();
-    cargarEdificiosForm();
+  loadEdificios();
+  cargar();
 }
 
-/* ===== HEADER ===== */
-function authHeaders(){
-    return {
-        "Content-Type":"application/json",
-        "Authorization": localStorage.getItem("auth")
-    };
+/* ===== AUTH ===== */
+function auth(){
+  return {
+    "Content-Type":"application/json",
+    "Authorization": localStorage.getItem("auth")
+  };
 }
 
 /* ===== EDIFICIOS ===== */
 async function loadEdificios(){
-    const r = await fetch("/admin/edificios",{headers:authHeaders()});
-    const d = await r.json();
+  const r = await fetch("/admin/edificios",{headers:auth()});
+  const d = await r.json();
 
-    const sel = document.getElementById("edificio");
-    sel.innerHTML = "<option value=''>Todos</option>";
+  edificio.innerHTML = "<option value=''>Todos</option>";
+  edificioNuevo.innerHTML = "";
+  edificioPermiso.innerHTML = "";
 
-    d.forEach(e=>{
-        sel.innerHTML += `<option value="${e.id}">${e.nombre}</option>`;
-    });
+  d.forEach(e=>{
+    edificio.innerHTML += `<option value="${e.id}">${e.nombre}</option>`;
+    edificioNuevo.innerHTML += `<option value="${e.id}">${e.nombre}</option>`;
+    edificioPermiso.innerHTML += `<option value="${e.id}">${e.nombre}</option>`;
+  });
 }
 
 /* ===== TABLA ===== */
 async function cargar(){
 
-    let e = edificio.value;
-    let c = cedula.value;
+  let url = "/admin/registros?";
 
-    let url = "/admin/registros?";
-    if(e) url += "edificio_id="+e+"&";
-    if(c) url += "cedula="+c;
+  if(edificio.value) url += "edificio_id="+edificio.value+"&";
+  if(cedula.value) url += "cedula="+cedula.value;
 
-    const r = await fetch(url,{headers:authHeaders()});
-    const d = await r.json();
+  const r = await fetch(url,{headers:auth()});
+  const d = await r.json();
 
-    tabla.innerHTML = "";
+  tabla.innerHTML="";
 
-    d.forEach(r=>{
-        tabla.innerHTML += `
-        <tr>
-            <td>${r.id}</td>
-            <td>${r.nombre}</td>
-            <td>${r.cedula}</td>
-            <td>${r.edificio_nombre}</td>
-            <td>${r.rol}</td>
-            <td>${r.tipo_registro}</td>
-            <td>${new Date(r.fecha_hora).toLocaleString()}</td>
-            <td>${r.observacion || "-"}</td>
-        </tr>`;
-    });
+  d.forEach(r=>{
+    tabla.innerHTML += `
+    <tr>
+      <td>${r.id}</td>
+      <td>${r.nombre}</td>
+      <td>${r.cedula}</td>
+      <td>${r.edificio_nombre}</td>
+      <td>${r.rol}</td>
+      <td>${r.tipo_registro}</td>
+      <td>${new Date(r.fecha_hora).toLocaleString()}</td>
+      <td>${r.observacion || "-"}</td>
+    </tr>`;
+  });
 }
 
 /* ===== USUARIO ===== */
 async function crearUsuario(){
 
-    const r = await fetch("/admin/crear-usuario",{
-        method:"POST",
-        headers:authHeaders(),
-        body:JSON.stringify({
-            nombre:nombreNuevo.value,
-            cedula:cedulaNueva.value,
-            rol_id:rolNuevo.value,
-            edificios:[edificioNuevo.value]
-        })
-    });
+  const r = await fetch("/admin/crear-usuario",{
+    method:"POST",
+    headers:auth(),
+    body:JSON.stringify({
+      nombre:nombreNuevo.value,
+      cedula:cedulaNueva.value,
+      rol_id:rolNuevo.value,
+      edificios:[edificioNuevo.value]
+    })
+  });
 
-    alert((await r.json()).mensaje);
-    cerrarFormulario();
+  alert((await r.json()).mensaje);
+  cerrarFormulario();
 }
 
 /* ===== EDIFICIO ===== */
 function mostrarFormEdificio(){
-    let nombre = prompt("Nombre edificio");
-    if(!nombre) return;
+  let n = prompt("Nombre edificio");
+  if(!n) return;
 
-    fetch("/admin/agregar-edificio",{
-        method:"POST",
-        headers:authHeaders(),
-        body:JSON.stringify({nombre})
-    }).then(r=>r.json()).then(d=>{
-        alert(d.mensaje);
-        loadEdificios();
-    });
+  fetch("/admin/agregar-edificio",{
+    method:"POST",
+    headers:auth(),
+    body:JSON.stringify({nombre:n})
+  }).then(r=>r.json()).then(d=>{
+    alert(d.mensaje);
+    loadEdificios();
+  });
+}
+
+/* ===== MENÚ ===== */
+function menuAdmin(){
+  menuBox.style.display="flex";
+}
+
+function cerrarMenu(){
+  menuBox.style.display="none";
 }
 
 /* ===== PERMISOS ===== */
 function abrirPermisos(){
-    permisoBox.style.display="flex";
+  permisoBox.style.display="flex";
 }
 
 function cerrarPermisos(){
-    permisoBox.style.display="none";
+  permisoBox.style.display="none";
 }
 
 async function asignarPermiso(){
-    const r = await fetch("/admin/asignar-edificio",{
-        method:"POST",
-        headers:authHeaders(),
-        body:JSON.stringify({
-            cedula:cedulaPermiso.value,
-            edificio_id:edificioPermiso.value
-        })
-    });
+  const r = await fetch("/admin/asignar-edificio",{
+    method:"POST",
+    headers:auth(),
+    body:JSON.stringify({
+      cedula:cedulaPermiso.value,
+      edificio_id:edificioPermiso.value
+    })
+  });
 
-    alert((await r.json()).mensaje);
+  alert((await r.json()).mensaje);
 }
 
 async function quitarPermiso(){
-    const r = await fetch("/admin/quitar-permiso",{
-        method:"POST",
-        headers:authHeaders(),
-        body:JSON.stringify({
-            cedula:cedulaPermiso.value,
-            edificio_id:edificioPermiso.value
-        })
-    });
+  const r = await fetch("/admin/quitar-permiso",{
+    method:"POST",
+    headers:auth(),
+    body:JSON.stringify({
+      cedula:cedulaPermiso.value,
+      edificio_id:edificioPermiso.value
+    })
+  });
 
-    alert((await r.json()).mensaje);
-}
-
-/* ===== MENU ===== */
-function menuAdmin(){
-    menuBox.style.display="flex";
-}
-
-function cerrarMenu(){
-    menuBox.style.display="none";
+  alert((await r.json()).mensaje);
 }
 
 /* ===== INIT ===== */
 if(localStorage.getItem("auth")){
-    document.getElementById("loginBox").style.display="none";
-    document.querySelector(".container").style.display="block";
-    loadEdificios();
-    cargar();
+  loginBox.style.display="none";
+  document.querySelector(".container").style.display="block";
+  loadEdificios();
+  cargar();
 }
 
 </script>
