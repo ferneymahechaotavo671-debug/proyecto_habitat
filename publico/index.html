@@ -5,89 +5,40 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Registro QR</title>
 
-<link rel="manifest" href="/manifest.json">
-<meta name="theme-color" content="#0f3d2e">
-<link rel="apple-touch-icon" href="/icon-512.png">
-
 <script src="https://unpkg.com/html5-qrcode"></script>
 
 <style>
-
-*{margin:0;padding:0;box-sizing:border-box}
-
 body{
-font-family:'Poppins',sans-serif;
+font-family:Arial;
 background:linear-gradient(135deg,#0f3d2e,#1f7a63,#38b48b);
-min-height:100vh;
 display:flex;
 justify-content:center;
 align-items:center;
+min-height:100vh;
 }
 
 .container{
-background:rgba(255,255,255,0.95);
-padding:30px;
-border-radius:20px;
-width:92%;
-max-width:420px;
+background:white;
+padding:25px;
+border-radius:15px;
+width:90%;
+max-width:400px;
 text-align:center;
-box-shadow:0 10px 30px rgba(0,0,0,.25);
 }
 
-h2{color:#0f3d2e;margin-bottom:10px}
-h3{color:#1f7a63;margin-bottom:15px}
-
-input{
-padding:13px;
+input,button{
 width:100%;
+padding:12px;
 margin-top:10px;
-border-radius:12px;
+border-radius:10px;
 border:1px solid #ddd;
-font-size:16px;
 }
 
 button{
-padding:13px;
-width:100%;
-margin-top:10px;
-border:none;
-border-radius:12px;
 background:#1f7a63;
 color:white;
-font-size:16px;
+border:none;
 }
-
-#reader{
-margin-top:15px;
-border-radius:12px;
-overflow:hidden;
-}
-
-#overlayMensaje{
-position:fixed;
-top:0;left:0;
-width:100%;height:100%;
-background:rgba(0,0,0,0.7);
-display:flex;
-justify-content:center;
-align-items:center;
-opacity:0;
-pointer-events:none;
-transition:0.3s;
-}
-
-#overlayMensaje.show{
-opacity:1;
-pointer-events:all;
-}
-
-.mensaje-box{
-background:white;
-padding:30px;
-border-radius:15px;
-text-align:center;
-}
-
 </style>
 </head>
 
@@ -95,289 +46,99 @@ text-align:center;
 
 <div class="container">
 
-  <img src="logo.png" width="90">
+<h2>Registro QR</h2>
 
-  <h2>Registro QR</h2>
+<h3 id="edificio">Validando...</h3>
 
-  <h3 id="edificio">Validando...</h3>
+<form id="form">
+<input id="cedula" placeholder="Cédula" required>
+<button>Registrar</button>
+</form>
 
-  <form id="form">
-    <input id="cedula" placeholder="Cédula" required>
-    <button>Registrar</button>
-  </form>
+<button onclick="camara()">Escanear QR</button>
 
-  <button onclick="iniciarCamaraQR()">📷 Escanear QR</button>
+<div id="reader"></div>
 
-  <div id="reader"></div>
-
-</div>
-
-<div id="overlayMensaje">
-  <div class="mensaje-box">
-    <h2 id="textoGrande"></h2>
-  </div>
 </div>
 
 <script>
 
-// =========================
-// QR PARAM
-// =========================
-const params = new URLSearchParams(location.search);
+const params=new URLSearchParams(location.search);
+let codigo=params.get("edificio");
 
-let codigo = params.get("edificio");
-
-console.log("CODIGO QR RAW:", codigo);
-
-if (!codigo) {
-  console.log("NO HAY QR → MODO HOME");
-  codigo = null;
-} else {
-  codigo = codigo
-    .toString()
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, "")
-    .replace(/[^a-z0-9]/g, "");
-
-  console.log("CODIGO QR LIMPIO:", codigo);
+function limpiar(t){
+return (t||"")
+.toLowerCase()
+.replace(/\s+/g,"")
+.replace(/[^a-z0-9]/g,"");
 }
 
-// =========================
-// DEVICE ID (LISTO ANTI-SUPLANTACIÓN)
-// =========================
-function getDeviceId(){
-  let id = localStorage.getItem("device_id");
-  if(!id){
-    id = crypto.randomUUID();
-    localStorage.setItem("device_id", id);
-  }
-  return id;
+/* EDIFICIO */
+async function cargar(){
+
+if(!codigo) return;
+
+const r=await fetch("/admin/edificios");
+const d=await r.json();
+
+const ed=d.find(e=>limpiar(e.codigo_qr)==limpiar(codigo));
+
+edificio.innerText=ed?ed.nombre:"Inválido ❌";
 }
 
-// =========================
-// TIEMPO QR
-// =========================
-const LIMITE = 20 * 60 * 1000;
+cargar();
 
-let codigoActual = codigo; // QR actual
-let inicio = localStorage.getItem("inicioQR");
-let codigoGuardado = localStorage.getItem("codigoQR");
-
-function reiniciarTiempo() {
-  localStorage.setItem("inicioQR", Date.now());
-  localStorage.setItem("codigoQR", codigoActual);
+/* DEVICE */
+function device(){
+let id=localStorage.getItem("id");
+if(!id){
+id=crypto.randomUUID();
+localStorage.setItem("id",id);
+}
+return id;
 }
 
-// 👉 SI NO HAY TIEMPO O ES OTRO QR → reinicia
-if (!inicio || codigoGuardado !== codigoActual) {
-  reiniciarTiempo();
-  inicio = localStorage.getItem("inicioQR");
-}
+/* REGISTRO */
+form.onsubmit=async(e)=>{
+e.preventDefault();
 
-// =============================
-// VERIFICAR TIEMPO
-// =============================
-function verificarTiempo() {
-  const start = Number(localStorage.getItem("inicioQR"));
+const r=await fetch("/registro",{
+method:"POST",
+headers:{"Content-Type":"application/json"},
+body:JSON.stringify({
+cedula:cedula.value,
+codigoEdificio:codigo,
+deviceId:device()
+})
+});
 
-  if (Date.now() - start > LIMITE) {
+const d=await r.json();
+alert(d.mensaje);
+};
 
-    localStorage.removeItem("inicioQR");
-    localStorage.removeItem("codigoQR");
+/* QR */
+function camara(){
 
-    document.body.innerHTML = `
-      <div style="text-align:center;font-family:Arial;">
-        <h2>⏰ QR expirado</h2>
-        <p>Vuelve a escanear el código</p>
-      </div>
-    `;
+const scan=new Html5Qrcode("reader");
 
-    return false;
-  }
+Html5Qrcode.getCameras().then(devs=>{
 
-  return true;
-}
+scan.start(devs[0].id,{fps:10,qrbox:250},
+(text)=>{
 
-// solo validar si hay QR
-if (codigo && !verificarTiempo()) throw new Error("expirado");
+scan.stop();
 
-// =========================
-// CARGAR EDIFICIO (SEGURO)
-// =========================
-async function cargarEdificio(){
+let clean=text
+.replace(/.*edificio=/,"")
+.replace(/[^a-z0-9]/g,"");
 
-  if(!codigo) return;
-
-  try {
-
-    const res = await fetch("/admin/edificios", {
-      headers: {
-        "Authorization": localStorage.getItem("auth") || ""
-      }
-    });
-
-    console.log("STATUS:", res.status);
-
-    const text = await res.text();
-    console.log("RAW RESPONSE:", text);
-
-    let data;
-
-    try {
-      data = JSON.parse(text);
-    } catch (e) {
-      throw new Error("Respuesta NO es JSON");
-    }
-
-    const limpiar = (t) =>
-  (t || "")
-    .toString()
-    .toLowerCase()
-    .trim()
-    .replace(/^https?:\/\/.*[?&]edificio=/, "") // quita URL
-    .replace(/\s+/g, "")
-    .replace(/[^a-z0-9]/g, "");
-
-const ed = data.find(e =>
-  limpiar(e.codigo_qr) === limpiar(codigo)
-);
-
-    document.getElementById("edificio").innerText =
-      ed ? ed.nombre : "Edificio inválido ❌";
-
-  } catch (e) {
-    console.error("FALLO COMPLETO:", e);
-    document.getElementById("edificio").innerText =
-      "Error cargando edificio";
-  }
-}
-
-// =========================
-// CÁMARA (FORZAR TRASERA)
-// =========================
-function iniciarCamaraQR() {
-
-  const scanner = new Html5Qrcode("reader");
-
-  Html5Qrcode.getCameras().then(devices => {
-
-    if (!devices || devices.length === 0) {
-      alert("No se encontró cámara");
-      return;
-    }
-
-    // 🔥 FORZAR CÁMARA TRASERA REAL
-    let backCamera = devices.find(d => {
-
-      const label = (d.label || "").toLowerCase();
-
-      return (
-        label.includes("back") ||
-        label.includes("rear") ||
-        label.includes("environment") ||
-        label.includes("trasera")
-      );
-    });
-
-    const cameraId = backCamera ? backCamera.id : devices[devices.length - 1].id;
-
-    scanner.start(
-      cameraId,
-      {
-        fps: 10,
-        qrbox: { width: 250, height: 250 },
-        aspectRatio: 1.0
-      },
-      async (text) => {
-
-        try {
-          await scanner.stop();
-          scanner.clear();
-        } catch (e) {}
-
-        // 🔥 LIMPIEZA QR (MUY IMPORTANTE)
-        let codigoLimpio = text
-          .replace(/^https?:\/\/.*[?&]edificio=/, "")
-          .trim()
-          .toLowerCase()
-          .replace(/[^a-z0-9]/g, "");
-
-        console.log("QR leído:", codigoLimpio);
-
-        window.location.href = `/?edificio=${codigoLimpio}`;
-      }
-    );
-
-  }).catch(err => {
-    console.error(err);
-    alert("Error iniciando cámara ❌");
-  });
-}
-
-// =========================
-// REGISTRO
-// =========================
-document.getElementById("form").addEventListener("submit", async (e)=>{
-
-  e.preventDefault();
-
-  const cedula = document.getElementById("cedula").value;
-
-  const res = await fetch("/registro",{
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({
-      cedula,
-      codigoEdificio: codigo,
-      deviceId: getDeviceId()
-    })
-  });
-
-  const data = await res.json();
-
-  document.getElementById("textoGrande").innerText = data.mensaje;
-  document.getElementById("overlayMensaje").classList.add("show");
-
-  setTimeout(()=>{
-    document.getElementById("overlayMensaje").classList.remove("show");
-  },2500);
+location.href="/?edificio="+clean;
 
 });
 
-// =========================
-// PWA INSTALL BUTTON
-// =========================
-let deferredPrompt;
-
-window.addEventListener("beforeinstallprompt", (e)=>{
-  e.preventDefault();
-  deferredPrompt = e;
-
-  const btn = document.createElement("button");
-  btn.innerText = "📲 Instalar App";
-
-  Object.assign(btn.style,{
-    position:"fixed",
-    bottom:"20px",
-    right:"20px",
-    padding:"12px",
-    background:"#1f7a63",
-    color:"white",
-    border:"none",
-    borderRadius:"10px",
-    zIndex:9999
-  });
-
-  document.body.appendChild(btn);
-
-  btn.onclick = async ()=>{
-    deferredPrompt.prompt();
-    await deferredPrompt.userChoice;
-    deferredPrompt = null;
-    btn.remove();
-  };
 });
+
+}
 
 </script>
 
