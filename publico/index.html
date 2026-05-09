@@ -126,14 +126,21 @@ text-align:center;
 const params = new URLSearchParams(location.search);
 
 let codigo = params.get("edificio");
-console.log("CODIGO QR RECIBIDO:", codigo);
 
-if (codigo) {
+console.log("CODIGO QR RAW:", codigo);
+
+if (!codigo) {
+  console.log("NO HAY QR → MODO HOME");
+  codigo = null;
+} else {
   codigo = codigo
+    .toString()
     .toLowerCase()
     .trim()
     .replace(/\s+/g, "")
     .replace(/[^a-z0-9]/g, "");
+
+  console.log("CODIGO QR LIMPIO:", codigo);
 }
 
 // =========================
@@ -223,9 +230,18 @@ async function cargarEdificio(){
       throw new Error("Respuesta NO es JSON");
     }
 
-    const ed = data.find(e =>
-      e.codigo_qr?.toLowerCase().trim().replace(/\s+/g,"") === codigo
-    );
+    const limpiar = (t) =>
+  (t || "")
+    .toString()
+    .toLowerCase()
+    .trim()
+    .replace(/^https?:\/\/.*[?&]edificio=/, "") // quita URL
+    .replace(/\s+/g, "")
+    .replace(/[^a-z0-9]/g, "");
+
+const ed = data.find(e =>
+  limpiar(e.codigo_qr) === limpiar(codigo)
+);
 
     document.getElementById("edificio").innerText =
       ed ? ed.nombre : "Edificio inválido ❌";
