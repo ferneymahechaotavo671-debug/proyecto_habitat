@@ -198,11 +198,35 @@ const scanner = new Html5Qrcode("reader");
 
 Html5Qrcode.getCameras().then(devices => {
 
-let camera = devices[0].id;
+if (!devices || devices.length === 0) {
+  alert("No hay cámaras disponibles");
+  return;
+}
+
+// 🔥 BUSCAR CÁMARA TRASERA
+let backCamera = devices.find(d => {
+
+const label = (d.label || "").toLowerCase();
+
+return (
+  label.includes("back") ||
+  label.includes("rear") ||
+  label.includes("environment") ||
+  label.includes("trasera")
+);
+
+});
+
+// 🔥 SI NO ENCUENTRA, USA LA ÚLTIMA (NORMALMENTE ES TRASERA)
+let cameraId = backCamera ? backCamera.id : devices[devices.length - 1].id;
 
 scanner.start(
-camera,
-{ fps:10, qrbox:250 },
+cameraId,
+{
+fps: 10,
+qrbox: 250,
+aspectRatio: 1.0
+},
 async (text) => {
 
 await scanner.stop();
@@ -217,7 +241,11 @@ location.href = "/?edificio=" + clean;
 }
 );
 
+}).catch(err=>{
+console.error(err);
+alert("Error accediendo a cámara ❌");
 });
+
 }
 
 // =========================
