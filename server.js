@@ -488,6 +488,33 @@ app.get("/admin/dashboard", validarAdmin, (req, res) => {
   );
 });
 
+app.get("/edificio/:codigo", (req, res) => {
+
+  const codigo = req.params.codigo
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, "")
+    .replace(/[^a-z0-9]/g, "");
+
+  db.query(
+    "SELECT * FROM edificios WHERE codigo_qr = ?",
+    [codigo],
+    (err, data) => {
+
+      if (err) {
+        return res.status(500).json({ error: "DB error" });
+      }
+
+      if (data.length === 0) {
+        return res.status(404).json({ error: "No existe" });
+      }
+
+      res.json(data[0]);
+    }
+  );
+
+});
+
 // =========================
 // SERVER
 // =========================

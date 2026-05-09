@@ -241,25 +241,16 @@ if (!verificarTiempo()) throw new Error("expirado");
 async function cargarNombreEdificio() {
   try {
 
-    const auth = localStorage.getItem("auth"); // 👈 importante
-
-    const res = await fetch("/admin/edificios", {
-      headers: {
-        "Authorization": auth || ""
-      }
-    });
+    const res = await fetch(`/edificio/${codigo}`);
 
     if (!res.ok) throw new Error("error");
 
-    const edificios = await res.json();
+    const edificio = await res.json();
 
-    const edificio = edificios.find(e => e.codigo_qr === codigo);
-
-    document.getElementById("edificio").innerText =
-      edificio ? edificio.nombre : "Edificio no válido";
+    document.getElementById("edificio").innerText = edificio.nombre;
 
   } catch (error) {
-    document.getElementById("edificio").innerText = "Error cargando edificio";
+    document.getElementById("edificio").innerText = "Edificio no válido ❌";
   }
 }
 
