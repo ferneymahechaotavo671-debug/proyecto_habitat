@@ -126,6 +126,7 @@ text-align:center;
 const params = new URLSearchParams(location.search);
 
 let codigo = params.get("edificio");
+console.log("CODIGO QR RECIBIDO:", codigo);
 
 if (codigo) {
   codigo = codigo
@@ -211,7 +212,9 @@ async function cargarEdificio(){
 
     const data = await res.json();
 
-    const ed = data.find(e => e.codigo_qr === codigo);
+    const ed = data.find(e =>
+  e.codigo_qr?.toLowerCase().trim().replace(/\s+/g, "") === codigo
+);
 
     document.getElementById("edificio").innerText =
       ed ? ed.nombre : "Edificio inválido";
