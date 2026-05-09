@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Registro QR PRO</title>
 
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#0f3d2e">
+<link rel="apple-touch-icon" href="/logo.png">
+
 <script src="https://unpkg.com/html5-qrcode"></script>
 
 <style>
@@ -296,9 +300,7 @@ e.preventDefault();
 
 deferredPrompt = e;
 
-const btn = document.getElementById("installBtn");
-
-btn.style.display = "block";
+document.getElementById("installBtn").style.display = "block";
 
 });
 
@@ -315,6 +317,22 @@ deferredPrompt = null;
 document.getElementById("installBtn").style.display = "none";
 
 });
+
+// =========================
+// REGISTRAR SERVICE WORKER
+// =========================
+if ("serviceWorker" in navigator) {
+
+window.addEventListener("load", ()=>{
+
+navigator.serviceWorker
+.register("/sw.js")
+.then(()=>console.log("SW activo"))
+.catch(err=>console.log("SW error", err));
+
+});
+
+}
 
 </script>
 
