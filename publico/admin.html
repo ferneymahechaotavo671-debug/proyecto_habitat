@@ -15,7 +15,7 @@
   font-family: Arial, Helvetica, sans-serif;
 }
 
-/* ===== FONDO ===== */
+/* ===== FONDO PRO ===== */
 body {
   background: linear-gradient(135deg, #0f3d2e, #1f7a63, #38b48b);
   min-height: 100vh;
@@ -44,7 +44,24 @@ body {
   text-align: center;
 }
 
-/* ===== PANEL ===== */
+.login-card input {
+  width: 100%;
+  padding: 12px;
+  margin: 10px 0;
+  border-radius: 10px;
+  border: 1px solid #ddd;
+}
+
+.login-card button {
+  width: 100%;
+  padding: 12px;
+  border: none;
+  border-radius: 10px;
+  background: #1f7a63;
+  color: white;
+}
+
+/* ===== CONTENEDOR ===== */
 .container {
   background: rgba(255,255,255,0.95);
   padding: 25px;
@@ -81,7 +98,7 @@ button {
   padding: 11px 16px;
   border: none;
   border-radius: 12px;
-  background: linear-gradient(135deg, #1f7a63, #38b48b);
+  background: #1f7a63;
   color: white;
   cursor: pointer;
 }
@@ -91,9 +108,6 @@ table {
   width: 100%;
   border-collapse: collapse;
   margin-top: 15px;
-  background: white;
-  border-radius: 15px;
-  overflow: hidden;
 }
 
 th {
@@ -108,33 +122,22 @@ td {
   border-bottom: 1px solid #eee;
 }
 
-/* ===== MENU TARJETAS ===== */
-#menuBox {
+/* ===== MODALES ===== */
+#formulario, #permisoBox {
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,0.6);
   display: none;
   justify-content: center;
   align-items: center;
+  z-index: 9999;
 }
 
-.menu-card {
+.modal-card {
   background: white;
   padding: 25px;
-  border-radius: 20px;
-  width: 350px;
-  display: grid;
-  gap: 10px;
-  text-align: center;
-}
-
-.menu-card h3 {
-  color: #0f3d2e;
-  margin-bottom: 10px;
-}
-
-.menu-card button {
-  width: 100%;
+  border-radius: 15px;
+  width: 320px;
 }
 
 </style>
@@ -145,25 +148,24 @@ td {
 <!-- LOGIN -->
 <div id="loginBox">
   <div class="login-card">
-    <h3>🔐 Acceso Admin</h3>
+    <h3>Acceso Admin</h3>
     <input type="password" id="pass">
     <button onclick="login()">Ingresar</button>
+    <p id="msg"></p>
   </div>
 </div>
 
-<!-- PANEL -->
+<!-- ADMIN -->
 <div class="container">
 
 <h1>Panel Admin</h1>
 
 <div class="filters">
+  <select id="edificio"></select>
+  <input id="cedula" placeholder="Cédula">
 
-<select id="edificio"></select>
-<input id="cedula" placeholder="Cédula">
-
-<button onclick="cargar()">Filtrar</button>
-<button onclick="menuAdmin()">☰ Menú</button>
-
+  <button onclick="cargar()">Filtrar</button>
+  <button onclick="menuAdmin()">☰ Menú</button>
 </div>
 
 <table>
@@ -185,30 +187,26 @@ td {
 
 </div>
 
-<!-- MENÚ TARJETAS -->
+<!-- MENU -->
 <div id="menuBox">
+  <div class="modal-card">
+    <h3>Menú</h3>
 
-  <div class="menu-card">
-
-    <h3>⚙️ Panel de Control</h3>
-
-    <button onclick="mostrarFormulario()">➕ Crear Usuario</button>
-    <button onclick="mostrarFormEdificio()">🏢 Crear Edificio</button>
+    <button onclick="mostrarFormulario()">➕ Persona</button>
+    <button onclick="mostrarFormEdificio()">🏢 Edificio</button>
     <button onclick="abrirPermisos()">🔐 Permisos</button>
-    <button onclick="editarUsuario()">✏️ Editar Usuario</button>
-    <button onclick="eliminarRegistro()">🗑️ Eliminar Registro</button>
+    <button onclick="editarUsuario()">✏️ Editar</button>
+    <button onclick="eliminarRegistro()">🗑️ Eliminar</button>
     <button onclick="dashboard()">📊 Dashboard</button>
-    <button onclick="exportarExcel()">📥 Exportar Excel</button>
+    <button onclick="exportarExcel()">📥 Excel</button>
 
-    <button onclick="cerrarMenu()">❌ Cerrar</button>
-
+    <button onclick="cerrarMenu()" style="background:red;">Cerrar</button>
   </div>
-
 </div>
 
 <!-- FORM USUARIO -->
-<div id="formulario" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);justify-content:center;align-items:center;">
-  <div style="background:white;padding:20px;border-radius:15px;width:300px;">
+<div id="formulario">
+  <div class="modal-card">
     <h3>Crear Usuario</h3>
 
     <input id="nombreNuevo" placeholder="Nombre">
@@ -223,171 +221,193 @@ td {
 </div>
 
 <!-- PERMISOS -->
-<div id="permisoBox" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);justify-content:center;align-items:center;">
-  <div style="background:white;padding:20px;border-radius:15px;width:300px;">
+<div id="permisoBox">
+  <div class="modal-card">
     <h3>Permisos</h3>
 
     <input id="cedulaPermiso" placeholder="Cédula">
     <select id="edificioPermiso"></select>
 
-    <button onclick="asignarPermiso()">➕ Dar acceso</button>
-    <button onclick="quitarPermiso()">❌ Quitar acceso</button>
+    <button onclick="asignarPermiso()">Dar acceso</button>
+    <button onclick="quitarPermiso()">Quitar acceso</button>
     <button onclick="cerrarPermisos()">Cerrar</button>
+
   </div>
 </div>
 
 <script>
 
-const PASS = "Habitat2026";
+const PASSWORD = "Habitat2026";
 
 /* ===== LOGIN ===== */
 function login(){
-  if(pass.value !== PASS) return alert("❌");
+  const pass = document.getElementById("pass").value;
 
-  localStorage.setItem("auth", PASS);
+  if(pass !== PASSWORD){
+    document.getElementById("msg").innerText = "Incorrecto";
+    return;
+  }
 
-  loginBox.style.display="none";
-  document.querySelector(".container").style.display="block";
+  localStorage.setItem("auth", pass);
+
+  document.getElementById("loginBox").style.display = "none";
+  document.querySelector(".container").style.display = "block";
 
   loadEdificios();
   cargar();
 }
 
-/* ===== AUTH ===== */
-function auth(){
-  return {
-    "Content-Type":"application/json",
-    "Authorization": localStorage.getItem("auth")
-  };
-}
-
 /* ===== EDIFICIOS ===== */
 async function loadEdificios(){
-  const r = await fetch("/admin/edificios",{headers:auth()});
-  const d = await r.json();
 
-  edificio.innerHTML = "<option value=''>Todos</option>";
-  edificioNuevo.innerHTML = "";
-  edificioPermiso.innerHTML = "";
+  const res = await fetch("/admin/edificios", {
+    headers: { Authorization: localStorage.getItem("auth") }
+  });
 
-  d.forEach(e=>{
-    edificio.innerHTML += `<option value="${e.id}">${e.nombre}</option>`;
-    edificioNuevo.innerHTML += `<option value="${e.id}">${e.nombre}</option>`;
-    edificioPermiso.innerHTML += `<option value="${e.id}">${e.nombre}</option>`;
+  const data = await res.json();
+
+  const sel = document.getElementById("edificio");
+  sel.innerHTML = "<option value=''>Todos</option>";
+
+  const sel2 = document.getElementById("edificioNuevo");
+  const sel3 = document.getElementById("edificioPermiso");
+
+  sel2.innerHTML = "";
+  sel3.innerHTML = "";
+
+  data.forEach(e=>{
+    sel.innerHTML += `<option value="${e.id}">${e.nombre}</option>`;
+    sel2.innerHTML += `<option value="${e.id}">${e.nombre}</option>`;
+    sel3.innerHTML += `<option value="${e.id}">${e.nombre}</option>`;
   });
 }
 
 /* ===== TABLA ===== */
 async function cargar(){
 
+  let e = document.getElementById("edificio").value;
+  let c = document.getElementById("cedula").value;
+
   let url = "/admin/registros?";
 
-  if(edificio.value) url += "edificio_id="+edificio.value+"&";
-  if(cedula.value) url += "cedula="+cedula.value;
+  if(e) url += "edificio_id="+e+"&";
+  if(c) url += "cedula="+c;
 
-  const r = await fetch(url,{headers:auth()});
-  const d = await r.json();
+  const res = await fetch(url, {
+    headers: { Authorization: localStorage.getItem("auth") }
+  });
 
-  tabla.innerHTML="";
+  const data = await res.json();
 
-  d.forEach(r=>{
-    tabla.innerHTML += `
-    <tr>
-      <td>${r.id}</td>
-      <td>${r.nombre}</td>
-      <td>${r.cedula}</td>
-      <td>${r.edificio_nombre}</td>
-      <td>${r.rol}</td>
-      <td>${r.tipo_registro}</td>
-      <td>${new Date(r.fecha_hora).toLocaleString()}</td>
-      <td>${r.observacion || "-"}</td>
-    </tr>`;
+  const t = document.getElementById("tabla");
+  t.innerHTML = "";
+
+  data.forEach(r=>{
+    t.innerHTML += `
+      <tr>
+        <td>${r.id}</td>
+        <td>${r.nombre}</td>
+        <td>${r.cedula}</td>
+        <td>${r.edificio}</td>
+        <td>${r.rol}</td>
+        <td>${r.tipo_registro}</td>
+        <td>${r.fecha_hora}</td>
+        <td>${r.observacion || "-"}</td>
+      </tr>
+    `;
   });
 }
 
-/* ===== USUARIO ===== */
-async function crearUsuario(){
-
-  const r = await fetch("/admin/crear-usuario",{
-    method:"POST",
-    headers:auth(),
-    body:JSON.stringify({
-      nombre:nombreNuevo.value,
-      cedula:cedulaNueva.value,
-      rol_id:rolNuevo.value,
-      edificios:[edificioNuevo.value]
-    })
-  });
-
-  alert((await r.json()).mensaje);
-  cerrarFormulario();
-}
-
-/* ===== EDIFICIO ===== */
-function mostrarFormEdificio(){
-  let n = prompt("Nombre edificio");
-  if(!n) return;
-
-  fetch("/admin/agregar-edificio",{
-    method:"POST",
-    headers:auth(),
-    body:JSON.stringify({nombre:n})
-  }).then(r=>r.json()).then(d=>{
-    alert(d.mensaje);
-    loadEdificios();
-  });
-}
-
-/* ===== MENÚ ===== */
+/* ===== MENU ===== */
 function menuAdmin(){
-  menuBox.style.display="flex";
+  document.getElementById("menuBox").style.display = "flex";
 }
 
 function cerrarMenu(){
-  menuBox.style.display="none";
+  document.getElementById("menuBox").style.display = "none";
+}
+
+/* ===== USUARIO ===== */
+function mostrarFormulario(){
+  document.getElementById("formulario").style.display = "flex";
+}
+
+function cerrarFormulario(){
+  document.getElementById("formulario").style.display = "none";
+}
+
+async function crearUsuario(){
+
+  const nombre = nombreNuevo.value;
+  const cedula = cedulaNueva.value;
+  const rol_id = rolNuevo.value;
+  const edificio = edificioNuevo.value;
+
+  await fetch("/admin/crear-usuario", {
+    method:"POST",
+    headers:{
+      "Content-Type":"application/json",
+      Authorization: localStorage.getItem("auth")
+    },
+    body: JSON.stringify({
+      nombre, cedula, rol_id, edificios:[edificio]
+    })
+  });
+
+  alert("Usuario creado");
+  cerrarFormulario();
 }
 
 /* ===== PERMISOS ===== */
 function abrirPermisos(){
-  permisoBox.style.display="flex";
+  document.getElementById("permisoBox").style.display = "flex";
 }
 
 function cerrarPermisos(){
-  permisoBox.style.display="none";
+  document.getElementById("permisoBox").style.display = "none";
 }
 
 async function asignarPermiso(){
-  const r = await fetch("/admin/asignar-edificio",{
+
+  await fetch("/admin/asignar-edificio",{
     method:"POST",
-    headers:auth(),
-    body:JSON.stringify({
-      cedula:cedulaPermiso.value,
-      edificio_id:edificioPermiso.value
+    headers:{
+      "Content-Type":"application/json",
+      Authorization: localStorage.getItem("auth")
+    },
+    body: JSON.stringify({
+      cedula: cedulaPermiso.value,
+      edificio_id: edificioPermiso.value
     })
   });
 
-  alert((await r.json()).mensaje);
+  alert("Permiso dado");
 }
 
 async function quitarPermiso(){
-  const r = await fetch("/admin/quitar-permiso",{
+
+  await fetch("/admin/quitar-permiso",{
     method:"POST",
-    headers:auth(),
-    body:JSON.stringify({
-      cedula:cedulaPermiso.value,
-      edificio_id:edificioPermiso.value
+    headers:{
+      "Content-Type":"application/json",
+      Authorization: localStorage.getItem("auth")
+    },
+    body: JSON.stringify({
+      cedula: cedulaPermiso.value,
+      edificio_id: edificioPermiso.value
     })
   });
 
-  alert((await r.json()).mensaje);
+  alert("Permiso quitado");
 }
 
-/* ===== INIT ===== */
-if(localStorage.getItem("auth")){
-  loginBox.style.display="none";
-  document.querySelector(".container").style.display="block";
-  loadEdificios();
-  cargar();
+/* ===== OTROS ===== */
+function editarUsuario(){ alert("Usa API editar"); }
+function eliminarRegistro(){ alert("Usa API eliminar"); }
+function dashboard(){ alert("Usa dashboard"); }
+
+function exportarExcel(){
+  window.location = "/admin/exportar-excel-mensual?mes=" + (new Date().getMonth()+1);
 }
 
 </script>
