@@ -131,14 +131,19 @@ inset:0;
 background:rgba(0,0,0,0.6);
 display:none;
 justify-content:center;
-align-items:center;
+align-items:flex-start;
+overflow-y:auto;
+padding:30px 10px;
+z-index:9999;
 }
 
 .card{
 background:white;
 padding:20px;
 border-radius:12px;
-width:340px;
+width:320px;
+max-height:90vh;
+overflow-y:auto;
 }
 
 .card input, .card select{
@@ -673,7 +678,11 @@ loadDispositivos();
 
 <!-- DISPOSITIVOS -->
 <div class="modal" id="deviceBox">
-<div class="card" style="width:95%;max-width:1000px;">
+<div class="card" style="
+width:95%;
+max-width:1000px;
+min-height:500px;
+">
 
 <h3>Dispositivos</h3>
 
