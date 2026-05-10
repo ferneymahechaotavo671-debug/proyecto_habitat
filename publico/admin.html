@@ -580,14 +580,29 @@ Aprobar
 
 tablaDevices.innerHTML += `
 <tr>
+
 <td>${d.id}</td>
+
 <td>${d.nombre || '-'}</td>
+
 <td>${d.cedula}</td>
+
 <td>${d.edificio || '-'}</td>
+
 <td>${estado}</td>
+
+<td style="
+max-width:220px;
+word-break:break-all;
+font-size:12px;
+">
+${d.device_id || '-'}
+</td>
+
 <td>
 ${boton}
 </td>
+
 </tr>`;
 
 });
@@ -670,6 +685,7 @@ loadDispositivos();
 <th>Cédula</th>
 <th>Edificio</th>
 <th>Estado</th>
+<th>Device ID</th>
 <th>Acciones</th>
 </tr>
 </thead>
