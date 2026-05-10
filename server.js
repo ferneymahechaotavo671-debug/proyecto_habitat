@@ -266,118 +266,141 @@ app.post("/registro", (req, res) => {
 
         const user = users[0];
 
+// =========================
+// VALIDAR DISPOSITIVO
+// =========================
+db.query(
+  `SELECT * FROM dispositivos
+   WHERE cedula=?
+   AND edificio_id=?
+   AND device_id=?`,
+  [cedula, edificio.id, deviceId],
+  (err, devs) => {
+
+    if (err) {
+      return res.status(500).json({
+        mensaje: "Error dispositivos"
+      });
+    }
+
+    // =========================
+    // VALIDAR SI EL DEVICE YA
+    // ESTÁ ASOCIADO A OTRA CÉDULA
+    // =========================
+    db.query(
+      `SELECT * FROM dispositivos
+       WHERE device_id=?
+       AND cedula<>?`,
+      [deviceId, cedula],
+      (err, usados) => {
+
+        if (usados.length > 0) {
+
+          return res.status(403).json({
+            mensaje: "🚫 Este celular ya pertenece a otra persona"
+          });
+
+        }
+
         // =========================
-        // VALIDAR DISPOSITIVO
+        // NO EXISTE → CREAR PENDIENTE
+        // =========================
+        if (devs.length === 0) {
+
+          db.query(
+            `INSERT INTO dispositivos
+            (cedula, device_id, edificio_id, autorizado)
+            VALUES (?, ?, ?, 0)`,
+            [cedula, deviceId, edificio.id]
+          );
+
+          return res.status(403).json({
+            mensaje: "⏳ Dispositivo pendiente de aprobación"
+          });
+
+        }
+
+        // =========================
+        // VALIDAR AUTORIZACIÓN
+        // =========================
+        const dispositivo = devs[0];
+
+        if (
+          dispositivo.autorizado != 1 &&
+          user.rol !== "admin"
+        ) {
+
+          return res.status(403).json({
+            mensaje: "🚫 Dispositivo no autorizado"
+          });
+
+        }
+
+        // =========================
+        // VALIDAR DEVICE
+        // =========================
+        if(dispositivo.device_id !== deviceId){
+
+          return res.status(403).json({
+            mensaje:"🚫 Este celular no está autorizado"
+          });
+
+        }
+
+        // =========================
+        // ÚLTIMO REGISTRO
         // =========================
         db.query(
-          `SELECT * FROM dispositivos
+          `SELECT * FROM registros
            WHERE cedula=?
            AND edificio_id=?
-           AND device_id=?`,
-          [cedula, edificio.id, deviceId],
-          (err, devs) => {
+           ORDER BY fecha_hora DESC
+           LIMIT 1`,
+          [cedula, edificio.id],
+          (err, last) => {
 
-            if (err) {
-              return res.status(500).json({
-                mensaje: "Error dispositivos"
-              });
+            let tipo = "Entrada";
+
+            if(last.length > 0){
+
+              tipo =
+              last[0].tipo_registro === "Entrada"
+              ? "Salida"
+              : "Entrada";
+
             }
 
-            // =========================
-            // NO EXISTE → CREAR PENDIENTE
-            // =========================
-            if (devs.length === 0) {
-
-              db.query(
-                `INSERT INTO dispositivos
-                (cedula, device_id, edificio_id, autorizado)
-                VALUES (?, ?, ?, 0)`,
-                [cedula, deviceId, edificio.id]
-              );
-
-              return res.status(403).json({
-                mensaje: "⏳ Dispositivo pendiente de aprobación"
-              });
-            }
-
-            // =========================
-            // VALIDAR AUTORIZACIÓN
-            // =========================
-            const dispositivo = devs[0];
-
-            if (
-              dispositivo.autorizado != 1 &&
-              user.rol !== "admin"
-            ) {
-              return res.status(403).json({
-                mensaje: "🚫 Dispositivo no autorizado"
-              });
-            }
-
-            // =========================
-            // CONSULTAR ÚLTIMO REGISTRO
-            // =========================
             db.query(
-              `SELECT * FROM registros
-               WHERE cedula=?
-               AND edificio_id=?
-               ORDER BY fecha_hora DESC
-               LIMIT 1`,
-              [cedula, edificio.id],
-              (err, last) => {
+              `INSERT INTO registros
+              (nombre, cedula, edificio,
+              tipo_registro, edificio_id, rol)
+              VALUES (?,?,?,?,?,?)`,
+              [
+                user.nombre,
+                cedula,
+                edificio.nombre,
+                tipo,
+                edificio.id,
+                user.rol
+              ],
+              () => {
 
-                if (err) {
-                  return res.status(500).json({
-                    mensaje: "Error registros"
-                  });
-                }
-
-                let tipo = "Entrada";
-
-                if (last.length > 0) {
-
-                  tipo =
-                    last[0].tipo_registro === "Entrada"
-                    ? "Salida"
-                    : "Entrada";
-                }
-
-                // =========================
-                // INSERTAR REGISTRO
-                // =========================
-                db.query(
-                  `INSERT INTO registros
-                  (nombre, cedula, edificio, tipo_registro, edificio_id, rol)
-                  VALUES (?, ?, ?, ?, ?, ?)`,
-                  [
-                    user.nombre,
-                    cedula,
-                    edificio.nombre,
-                    tipo,
-                    edificio.id,
-                    user.rol
-                  ],
-                  (err) => {
-
-                    if (err) {
-                      return res.status(500).json({
-                        mensaje: "Error guardando registro"
-                      });
-                    }
-
-                    res.json({
-                      mensaje: `${tipo} registrada ✅`,
-                      edificio: edificio.nombre
-                    });
-
-                  }
-                );
+                res.json({
+                  mensaje: `${tipo} registrada ✅`,
+                  edificio: edificio.nombre
+                });
 
               }
             );
 
           }
         );
+
+      }
+    );
+
+  }
+);
 
       }
     );
