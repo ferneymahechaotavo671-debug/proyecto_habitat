@@ -2,6 +2,7 @@ const express = require("express");
 require("dotenv").config();
 const mysql = require("mysql2");
 const path = require("path");
+const ExcelJS = require("exceljs");
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -76,6 +77,60 @@ app.get("/admin/edificios", (req, res) => {
 
     res.json(data);
   });
+});
+
+app.get("/admin/dispositivos", validarAdmin, (req,res)=>{
+
+db.query(`
+SELECT 
+d.id,
+u.nombre,
+d.cedula,
+d.device_id,
+d.autorizado,
+e.nombre AS edificio
+FROM dispositivos d
+LEFT JOIN usuarios u ON d.cedula=u.cedula
+LEFT JOIN edificios e ON d.edificio_id=e.id
+ORDER BY d.id DESC
+`, (err,data)=>{
+
+if(err) return res.status(500).json(err);
+
+res.json(data);
+
+});
+
+});
+
+app.post("/admin/aprobar-dispositivo", validarAdmin, (req,res)=>{
+
+db.query(
+"UPDATE dispositivos SET autorizado=1 WHERE id=?",
+[req.body.id],
+(err)=>{
+
+if(err) return res.status(500).json(err);
+
+res.json({ok:true});
+
+});
+
+});
+
+app.post("/admin/bloquear-dispositivo", validarAdmin, (req,res)=>{
+
+db.query(
+"UPDATE dispositivos SET autorizado=0 WHERE id=?",
+[req.body.id],
+(err)=>{
+
+if(err) return res.status(500).json(err);
+
+res.json({ok:true});
+
+});
+
 });
 
 // =========================
@@ -200,12 +255,45 @@ app.post("/registro", (req, res) => {
               }
             }
 
-            if (devs.length === 0) {
-              db.query(
-                "INSERT INTO dispositivos (cedula, device_id, edificio_id) VALUES (?, ?, ?)",
-                [cedula, deviceId, edificio.id]
-              );
-            }
+            // =========================
+// SI NO EXISTE DEVICE
+// =========================
+if (devs.length === 0) {
+
+db.query(
+`INSERT INTO dispositivos
+(cedula, device_id, edificio_id, autorizado)
+VALUES (?, ?, ?, 0)`,
+[cedula, deviceId, edificio.id]
+);
+
+return res.status(403).json({
+mensaje:"⏳ Dispositivo pendiente de aprobación"
+});
+
+}
+
+// =========================
+// SI EXISTE PERO NO AUTORIZADO
+// =========================
+if(devs[0].autorizado == 0){
+
+return res.status(403).json({
+mensaje:"🚫 Dispositivo no autorizado"
+});
+
+}
+
+// =========================
+// VALIDAR DEVICE
+// =========================
+if(devs[0].device_id !== deviceId){
+
+return res.status(403).json({
+mensaje:"🚫 Este celular no está autorizado"
+});
+
+}
 
             db.query(
               `SELECT * FROM registros 
@@ -303,6 +391,63 @@ app.post("/admin/quitar-permiso", validarAdmin, (req, res) => {
     [req.body.cedula, req.body.edificio_id],
     () => res.json({ ok: true })
   );
+});
+
+app.get("/admin/exportar-excel", validarAdmin, (req, res) => {
+
+let sql = "SELECT * FROM registros WHERE 1=1";
+const params = [];
+
+if(req.query.edificio_id){
+sql += " AND edificio_id=?";
+params.push(req.query.edificio_id);
+}
+
+if(req.query.cedula){
+sql += " AND cedula=?";
+params.push(req.query.cedula);
+}
+
+sql += " ORDER BY fecha_hora DESC";
+
+db.query(sql, params, async (err, rows) => {
+
+if(err) return res.status(500).json(err);
+
+const workbook = new ExcelJS.Workbook();
+
+const sheet = workbook.addWorksheet("Registros");
+
+sheet.columns = [
+{ header:"ID", key:"id", width:10 },
+{ header:"Nombre", key:"nombre", width:30 },
+{ header:"Cédula", key:"cedula", width:20 },
+{ header:"Edificio", key:"edificio", width:25 },
+{ header:"Rol", key:"rol", width:15 },
+{ header:"Tipo", key:"tipo_registro", width:15 },
+{ header:"Fecha", key:"fecha_hora", width:25 }
+];
+
+rows.forEach(r=>{
+sheet.addRow(r);
+});
+
+res.setHeader(
+"Content-Type",
+"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+);
+
+res.setHeader(
+"Content-Disposition",
+"attachment; filename=registros.xlsx"
+);
+
+await workbook.xlsx.write(res);
+
+res.end();
+
+});
+
 });
 
 // =========================

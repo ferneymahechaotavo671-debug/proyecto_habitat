@@ -189,7 +189,12 @@ margin-top:5px;
 <select id="edificio"></select>
 <input id="cedula" placeholder="Cédula">
 
-<button onclick="cargar()">Filtrar</button>
+<button onclick="cargar()">🔎 Filtrar</button>
+
+<button onclick="exportarExcel()">
+📥 Excel
+</button>
+
 <button onclick="menu()">☰ Menú</button>
 </div>
 
@@ -270,6 +275,10 @@ style="background:red;float:right;width:auto;padding:5px 10px;">
 ✖
 </button>
 
+<button onclick="abrirDispositivos()">
+📱 Dispositivos
+</button>
+
 <input id="cedulaP" placeholder="Cédula">
 <select id="edificioP"></select>
 
@@ -311,10 +320,25 @@ const d=await r.json();
 
 edificio.innerHTML="";
 edificioP.innerHTML="";
+manualEdificio.innerHTML="";
 
 d.forEach(e=>{
-edificio.innerHTML+=`<option value="${e.id}">${e.nombre}</option>`;
-edificioP.innerHTML+=`<option value="${e.id}">${e.nombre}</option>`;
+
+edificio.innerHTML += `
+<option value="${e.id}">
+${e.nombre}
+</option>`;
+
+edificioP.innerHTML += `
+<option value="${e.id}">
+${e.nombre}
+</option>`;
+
+manualEdificio.innerHTML += `
+<option value="${e.id}">
+${e.nombre}
+</option>`;
+
 });
 }
 
@@ -380,6 +404,21 @@ backgroundColor:["#1f7a63","#38b48b","red"]
 }]
 }
 });
+}
+
+function exportarExcel(){
+
+let e = edificio.value;
+let c = cedula.value;
+
+let url = "/admin/exportar-excel?";
+
+if(e) url += "edificio_id=" + e + "&";
+
+if(c) url += "cedula=" + c;
+
+window.location = url;
+
 }
 
 /* DASHBOARD */
@@ -493,7 +532,169 @@ edificio_id:edificioP.value
 alert("Permiso quitado");
 }
 
+// =========================
+// ABRIR DISPOSITIVOS
+// =========================
+function abrirDispositivos(){
+
+loadDispositivos();
+
+deviceBox.style.display = "flex";
+
+}
+
+function cerrarDispositivos(){
+
+deviceBox.style.display = "none";
+
+}
+
+// =========================
+// CARGAR DISPOSITIVOS
+// =========================
+async function loadDispositivos(){
+
+const r = await fetch("/admin/dispositivos",{
+headers:{
+Authorization:PASS
+}
+});
+
+const data = await r.json();
+
+tablaDevices.innerHTML = "";
+
+data.forEach(d=>{
+
+const estado = d.autorizado == 1
+? "✅ Autorizado"
+: "⏳ Pendiente";
+
+const boton = d.autorizado == 1
+? `<button onclick="bloquear(${d.id})" style="background:red;">
+Bloquear
+</button>`
+: `<button onclick="aprobar(${d.id})">
+Aprobar
+</button>`;
+
+tablaDevices.innerHTML += `
+<tr>
+<td>${d.id}</td>
+<td>${d.nombre || '-'}</td>
+<td>${d.cedula}</td>
+<td>${d.edificio || '-'}</td>
+<td>${estado}</td>
+<td>
+${boton}
+</td>
+</tr>`;
+
+});
+
+}
+
+// =========================
+// APROBAR
+// =========================
+async function aprobar(id){
+
+await fetch("/admin/aprobar-dispositivo",{
+method:"POST",
+headers:{
+"Content-Type":"application/json",
+Authorization:PASS
+},
+body:JSON.stringify({id})
+});
+
+loadDispositivos();
+
+}
+
+// =========================
+// BLOQUEAR
+// =========================
+async function bloquear(id){
+
+await fetch("/admin/bloquear-dispositivo",{
+method:"POST",
+headers:{
+"Content-Type":"application/json",
+Authorization:PASS
+},
+body:JSON.stringify({id})
+});
+
+loadDispositivos();
+
+}
+
+// =========================
+// AGREGAR MANUAL
+// =========================
+async function agregarManual(){
+
+await fetch("/admin/agregar-dispositivo",{
+method:"POST",
+headers:{
+"Content-Type":"application/json",
+Authorization:PASS
+},
+body:JSON.stringify({
+cedula:manualCedula.value,
+device_id:manualDevice.value,
+edificio_id:manualEdificio.value
+})
+});
+
+alert("Dispositivo agregado");
+
+loadDispositivos();
+
+}
+
 </script>
+
+<!-- DISPOSITIVOS -->
+<div class="modal" id="deviceBox">
+<div class="card" style="width:95%;max-width:1000px;">
+
+<h3>Dispositivos</h3>
+
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Nombre</th>
+<th>Cédula</th>
+<th>Edificio</th>
+<th>Estado</th>
+<th>Acciones</th>
+</tr>
+</thead>
+
+<tbody id="tablaDevices"></tbody>
+</table>
+
+<br>
+
+<h3>Agregar Manual</h3>
+
+<input id="manualCedula" placeholder="Cédula">
+<input id="manualDevice" placeholder="Device ID">
+<select id="manualEdificio"></select>
+
+<button onclick="agregarManual()">
+➕ Agregar Manual
+</button>
+
+<button onclick="cerrarDispositivos()" style="background:red;">
+Cerrar
+</button>
+
+</div>
+</div>
 
 </body>
 </html>
