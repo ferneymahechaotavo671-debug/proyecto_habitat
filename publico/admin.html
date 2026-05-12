@@ -284,11 +284,6 @@ style="background:red;float:right;width:auto;padding:5px 10px;">
 📱 Dispositivos
 </button>
 
-<input id="cedulaP" placeholder="Cédula">
-<select id="edificioP"></select>
-
-<button onclick="asignar()">Dar</button>
-<button onclick="quitar()">Quitar</button>
 </div>
 </div>
 
@@ -350,11 +345,24 @@ ${e.nombre}
 /* CARGAR */
 async function cargar(){
 
-const r=await fetch("/admin/registros",{
+const edificioId = edificio.value;
+const ced = cedula.value;
+
+let url = "/admin/registros?";
+
+if(edificioId){
+url += `edificio_id=${edificioId}&`;
+}
+
+if(ced){
+url += `cedula=${ced}`;
+}
+
+const r = await fetch(url,{
 headers:{Authorization:PASS}
 });
 
-const d=await r.json();
+const d = await r.json();
 
 tabla.innerHTML="";
 
