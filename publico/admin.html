@@ -284,6 +284,20 @@ style="background:red;float:right;width:auto;padding:5px 10px;">
 📱 Dispositivos
 </button>
 
+<h3>Permisos Usuario</h3>
+
+<input id="usuarioPermiso" placeholder="ID Usuario">
+
+<select id="edificioPermiso"></select>
+
+<button onclick="darPermisoUsuario()">
+✅ Dar Permiso
+</button>
+
+<button onclick="quitarPermisoUsuario()">
+❌ Quitar Permiso
+</button>
+
 </div>
 </div>
 
@@ -324,10 +338,16 @@ const d=await r.json();
 
 edificio.innerHTML="";
 manualEdificio.innerHTML="";
+edificioPermiso.innerHTML="";
 
 d.forEach(e=>{
 
 edificio.innerHTML += `
+<option value="${e.id}">
+${e.nombre}
+</option>`;
+
+edificioPermiso.innerHTML += `
 <option value="${e.id}">
 ${e.nombre}
 </option>`;
@@ -617,6 +637,42 @@ ${boton}
 </tr>`;
 
 });
+
+}
+
+async function darPermisoUsuario(){
+
+await fetch("/admin/asignar-usuario-edificio",{
+method:"POST",
+headers:{
+"Content-Type":"application/json",
+Authorization:PASS
+},
+body:JSON.stringify({
+usuario_id: usuarioPermiso.value,
+edificio_id: edificioPermiso.value
+})
+});
+
+alert("Permiso asignado");
+
+}
+
+async function quitarPermisoUsuario(){
+
+await fetch("/admin/quitar-usuario-edificio",{
+method:"POST",
+headers:{
+"Content-Type":"application/json",
+Authorization:PASS
+},
+body:JSON.stringify({
+usuario_id: usuarioPermiso.value,
+edificio_id: edificioPermiso.value
+})
+});
+
+alert("Permiso eliminado");
 
 }
 

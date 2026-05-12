@@ -300,6 +300,8 @@ app.post("/registro", (req, res) => {
 // =========================
 // VALIDAR DISPOSITIVO
 // =========================
+function validarDispositivo(){
+
 db.query(
   `SELECT * FROM dispositivos
    WHERE cedula=?
@@ -313,6 +315,157 @@ db.query(
         mensaje: "Error dispositivos"
       });
     }
+
+    // =========================
+    // VALIDAR SI EL DEVICE YA
+    // ESTÁ ASOCIADO A OTRA CÉDULA
+    // =========================
+    db.query(
+      `SELECT * FROM dispositivos
+       WHERE device_id=?
+       AND cedula<>?`,
+      [deviceId, cedula],
+      (err, usados) => {
+
+        if (usados.length > 0) {
+
+          return res.status(403).json({
+            mensaje: "🚫 Este celular ya pertenece a otra persona"
+          });
+
+        }
+
+        // =========================
+        // NO EXISTE → CREAR PENDIENTE
+        // =========================
+        if (devs.length === 0) {
+
+          db.query(
+            `INSERT INTO dispositivos
+            (cedula, device_id, edificio_id, autorizado)
+            VALUES (?, ?, ?, 0)`,
+            [cedula, deviceId, edificio.id]
+          );
+
+          return res.status(403).json({
+            mensaje: "⏳ Dispositivo pendiente de aprobación"
+          });
+
+        }
+
+        // =========================
+        // VALIDAR AUTORIZACIÓN
+        // =========================
+        const dispositivo = devs[0];
+
+        if (
+          dispositivo.autorizado != 1 &&
+          user.rol !== "admin"
+        ) {
+
+          return res.status(403).json({
+            mensaje: "🚫 Dispositivo no autorizado"
+          });
+
+        }
+
+        // =========================
+        // ÚLTIMO REGISTRO
+        // =========================
+        db.query(
+          `SELECT * FROM registros
+           WHERE cedula=?
+           AND edificio_id=?
+           ORDER BY fecha_hora DESC
+           LIMIT 1`,
+          [cedula, edificio.id],
+          (err, last) => {
+
+            let tipo = "Entrada";
+
+            if(last.length > 0){
+
+              tipo =
+              last[0].tipo_registro === "Entrada"
+              ? "Salida"
+              : "Entrada";
+
+            }
+
+            db.query(
+              `INSERT INTO registros
+              (nombre, cedula, edificio,
+              tipo_registro, edificio_id, rol)
+              VALUES (?,?,?,?,?,?)`,
+              [
+                user.nombre,
+                cedula,
+                edificio.nombre,
+                tipo,
+                edificio.id,
+                user.rol
+              ],
+              () => {
+
+                res.json({
+                  mensaje: `${tipo} registrada ✅`,
+                  edificio: edificio.nombre
+                });
+
+              }
+            );
+
+          }
+        );
+
+      }
+    );
+
+  }
+);
+
+}
+
+// =========================
+// ADMINISTRACIÓN = ACCESO TOTAL
+// =========================
+if(user.rol_id == 1){
+
+validarDispositivo();
+
+}else{
+
+// =========================
+// VALIDAR USUARIO_EDIFICIO
+// =========================
+db.query(
+`SELECT * FROM usuario_edificio
+WHERE usuario_id=? AND edificio_id=?`,
+[user.id, edificio.id],
+(err, permisos)=>{
+
+if(err){
+
+return res.status(500).json({
+mensaje:"Error permisos"
+});
+
+}
+
+if(permisos.length === 0){
+
+return res.status(403).json({
+mensaje:"🚫 No tienes acceso a este edificio"
+});
+
+}
+
+// SI TIENE PERMISO
+validarDispositivo();
+
+});
+
+}
 
     // =========================
     // VALIDAR SI EL DEVICE YA
@@ -437,8 +590,6 @@ db.query(
     );
 
   });
-
-});
 
 // =========================
 // CRUD USUARIOS
