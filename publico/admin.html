@@ -315,21 +315,19 @@ setInterval(cargar,15000);
 /* EDIFICIOS */
 async function loadEdificios(){
 
-const r=await fetch("/admin/edificios");
+const r = await fetch("/admin/edificios", {
+headers:{
+Authorization:PASS
+}
+});
 const d=await r.json();
 
 edificio.innerHTML="";
-edificioP.innerHTML="";
 manualEdificio.innerHTML="";
 
 d.forEach(e=>{
 
 edificio.innerHTML += `
-<option value="${e.id}">
-${e.nombre}
-</option>`;
-
-edificioP.innerHTML += `
 <option value="${e.id}">
 ${e.nombre}
 </option>`;

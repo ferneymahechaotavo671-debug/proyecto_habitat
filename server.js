@@ -138,7 +138,12 @@ res.json({ok:true});
 // =========================
 app.get("/admin/registros", validarAdmin, (req, res) => {
 
-  let sql = "SELECT * FROM registros WHERE 1=1";
+  let sql = `
+  SELECT *
+  FROM registros
+  WHERE 1=1
+  `;
+
   const params = [];
 
   if (req.query.edificio_id) {
@@ -154,32 +159,57 @@ app.get("/admin/registros", validarAdmin, (req, res) => {
   sql += " ORDER BY fecha_hora DESC";
 
   db.query(sql, params, (err, data) => {
-    if (err) return res.status(500).json(err);
+
+    if (err) {
+      return res.status(500).json(err);
+    }
 
     const ahora = new Date();
 
-    const procesado = data.map(r => {
+    const procesado = data.map((r, index) => {
 
       let obs = "";
 
+      // SOLO VALIDAR ENTRADAS
       if (r.tipo_registro === "Entrada") {
 
         const entrada = new Date(r.fecha_hora);
-        const diffHoras = (ahora - entrada) / (1000 * 60 * 60);
 
-        if (diffHoras > 12) {
+        const diffHoras =
+          (ahora - entrada) / (1000 * 60 * 60);
+
+        // BUSCAR SI EXISTE SALIDA DESPUÉS
+        const tieneSalida = data.some(s => {
+
+          return (
+            s.cedula === r.cedula &&
+            s.edificio_id === r.edificio_id &&
+            s.tipo_registro === "Salida" &&
+            new Date(s.fecha_hora) > entrada
+          );
+
+        });
+
+        // SOLO ALERTA SI NO TIENE SALIDA
+        if (diffHoras > 12 && !tieneSalida) {
+
           obs = "🚨 Salida no registrada";
+
         }
+
       }
 
       return {
         ...r,
         observacion: obs
       };
+
     });
 
     res.json(procesado);
+
   });
+
 });
 
 // =========================
@@ -193,6 +223,7 @@ setInterval(() => {
       ON r1.cedula = r2.cedula 
       AND r1.edificio_id = r2.edificio_id
       AND r2.id > r1.id
+      AND r2.tipo_registro = 'Salida'
     SET r1.observacion = '🚨 Salida no registrada'
     WHERE r1.tipo_registro = 'Entrada'
       AND r2.id IS NULL
