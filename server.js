@@ -154,26 +154,49 @@ app.post("/admin/agregar-dispositivo", validarAdmin, (req, res) => {
   };
 
   getEdificios((ids) => {
-    // Borrar registros anteriores de esta cédula+device para re-insertar limpio
-    db.query(
-      "DELETE FROM dispositivos WHERE cedula=? AND device_id=?",
-      [cedula, device_id || ""],
-      (err) => {
-        if (err) return res.status(500).json(err);
 
-        if (ids.length === 0) return res.json({ ok: true });
+    if (ids.length === 0) return res.json({ ok: true });
 
-        const values = ids.map(id => [cedula, device_id || "", id, 1]);
-        db.query(
-          "INSERT INTO dispositivos (cedula, device_id, edificio_id, autorizado) VALUES ?",
-          [values],
-          (err) => {
-            if (err) return res.status(500).json(err);
-            res.json({ ok: true });
+    // Para cada edificio: si ya existe fila para esta cédula → actualizar device y autorizar
+    // Si no existe → insertar nueva fila autorizada
+    let pendientes = ids.length;
+    let huboError = false;
+
+    ids.forEach(edificio_id => {
+
+      db.query(
+        `SELECT id FROM dispositivos WHERE cedula=? AND edificio_id=? LIMIT 1`,
+        [cedula, edificio_id],
+        (err, rows) => {
+
+          if (err) { if (!huboError) { huboError = true; res.status(500).json(err); } return; }
+
+          const done = () => {
+            pendientes--;
+            if (pendientes === 0 && !huboError) res.json({ ok: true });
+          };
+
+          if (rows.length > 0) {
+            // Ya existe: actualizar device_id y autorizar
+            db.query(
+              `UPDATE dispositivos SET device_id=?, autorizado=1 WHERE id=?`,
+              [device_id || "", rows[0].id],
+              (err) => { if (err && !huboError) { huboError = true; res.status(500).json(err); return; } done(); }
+            );
+          } else {
+            // No existe: insertar nuevo autorizado
+            db.query(
+              `INSERT INTO dispositivos (cedula, device_id, edificio_id, autorizado) VALUES (?,?,?,1)`,
+              [cedula, device_id || "", edificio_id],
+              (err) => { if (err && !huboError) { huboError = true; res.status(500).json(err); return; } done(); }
+            );
           }
-        );
-      }
-    );
+
+        }
+      );
+
+    });
+
   });
 });
 
@@ -411,18 +434,21 @@ app.post("/registro", (req, res) => {
                   });
                 }
 
-                // Buscar si ya existe registro para cedula + device + edificio
+                // Buscar dispositivo: primero por device exacto, luego por placeholder ""
                 db.query(
                   `SELECT * FROM dispositivos
-                   WHERE cedula=? AND device_id=? AND edificio_id=?`,
-                  [cedula, deviceId, edificio.id],
+                   WHERE cedula=? AND edificio_id=?
+                   AND (device_id=? OR device_id='')
+                   ORDER BY CASE WHEN device_id=? THEN 0 ELSE 1 END
+                   LIMIT 1`,
+                  [cedula, edificio.id, deviceId, deviceId],
                   (err, devs) => {
 
                     if (err) return res.status(500).json({ mensaje: "Error dispositivos" });
 
                     if (devs.length === 0) {
 
-                      // NUEVO: insertar pendiente y avisar
+                      // No existe nada: insertar pendiente con device real
                       db.query(
                         `INSERT INTO dispositivos (cedula, device_id, edificio_id, autorizado)
                          VALUES (?, ?, ?, 0)`,
@@ -443,8 +469,20 @@ app.post("/registro", (req, res) => {
                       });
                     }
 
-                    // Autorizado: registrar entrada/salida
-                    registrarMovimiento(user, edificio, cedula, res);
+                    // Si llegó con placeholder "", actualizar con el device real
+                    if (dispositivo.device_id === "" || dispositivo.device_id === null) {
+                      db.query(
+                        `UPDATE dispositivos SET device_id=? WHERE id=?`,
+                        [deviceId, dispositivo.id],
+                        (err) => {
+                          if (err) return res.status(500).json({ mensaje: "Error actualizando device" });
+                          registrarMovimiento(user, edificio, cedula, res);
+                        }
+                      );
+                    } else {
+                      // Device ya registrado y autorizado
+                      registrarMovimiento(user, edificio, cedula, res);
+                    }
 
                   }
                 );
@@ -614,4 +652,5 @@ res.end();
 // =========================
 // SERVER
 // =========================
-app.listen(PORT, () => console.log("Servidor corriendo en", PORT));  
+app.listen(PORT, () => console.log("Servidor corriendo en", PORT));
+ 
