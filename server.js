@@ -66,6 +66,23 @@ app.post("/login", (req, res) => {
 });
 
 // =========================
+// DEBUG: VER ROL EXACTO (eliminar después de verificar)
+// =========================
+app.get("/debug/rol/:cedula", (req, res) => {
+  db.query(
+    `SELECT u.cedula, u.nombre, u.rol_id, r.id AS rid, r.nombre AS rol_nombre
+     FROM usuarios u
+     LEFT JOIN roles r ON u.rol_id = r.id
+     WHERE u.cedula=?`,
+    [req.params.cedula],
+    (err, rows) => {
+      if (err) return res.status(500).json(err);
+      res.json(rows);
+    }
+  );
+});
+
+// =========================
 // EDIFICIOS
 // =========================
 app.get("/admin/edificios", (req, res) => {
@@ -361,7 +378,7 @@ app.post("/registro", (req, res) => {
             // ================================================
             // FLUJO ROL ADMINISTRACION
             // ================================================
-            if (user.rol === "administracion") {
+            if (user.rol === "Administración") {
 
               // Buscar si ya tiene dispositivos registrados
               db.query(
@@ -653,4 +670,3 @@ res.end();
 // SERVER
 // =========================
 app.listen(PORT, () => console.log("Servidor corriendo en", PORT));
- 
