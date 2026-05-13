@@ -134,20 +134,47 @@ res.json({ok:true});
 });
 
 // =========================
-// ✅ CAMBIO 1: ENDPOINT FALTANTE
+// AGREGAR DISPOSITIVO MANUAL
+// Soporta uno, varios o todos los edificios
 // =========================
 app.post("/admin/agregar-dispositivo", validarAdmin, (req, res) => {
-  const { cedula, device_id, edificio_id } = req.body;
-  db.query(
-    `INSERT INTO dispositivos (cedula, device_id, edificio_id, autorizado)
-     VALUES (?, ?, ?, 1)
-     ON DUPLICATE KEY UPDATE autorizado=1`,
-    [cedula, device_id || "", edificio_id],
-    (err) => {
-      if (err) return res.status(500).json(err);
-      res.json({ ok: true });
+  const { cedula, device_id, edificio_ids } = req.body;
+  // edificio_ids puede ser: "todos", un array [1,2,3] o un solo id
+
+  const getEdificios = (cb) => {
+    if (edificio_ids === "todos") {
+      db.query("SELECT id FROM edificios", (err, rows) => {
+        if (err) return res.status(500).json(err);
+        cb(rows.map(r => r.id));
+      });
+    } else {
+      const ids = Array.isArray(edificio_ids) ? edificio_ids : [edificio_ids];
+      cb(ids);
     }
-  );
+  };
+
+  getEdificios((ids) => {
+    // Borrar registros anteriores de esta cédula+device para re-insertar limpio
+    db.query(
+      "DELETE FROM dispositivos WHERE cedula=? AND device_id=?",
+      [cedula, device_id || ""],
+      (err) => {
+        if (err) return res.status(500).json(err);
+
+        if (ids.length === 0) return res.json({ ok: true });
+
+        const values = ids.map(id => [cedula, device_id || "", id, 1]);
+        db.query(
+          "INSERT INTO dispositivos (cedula, device_id, edificio_id, autorizado) VALUES ?",
+          [values],
+          (err) => {
+            if (err) return res.status(500).json(err);
+            res.json({ ok: true });
+          }
+        );
+      }
+    );
+  });
 });
 
 // =========================
@@ -263,291 +290,212 @@ app.post("/registro", (req, res) => {
   const deviceId = req.body.deviceId;
 
   if (!cedula || !codigoEdificio) {
-    return res.status(400).json({
-      mensaje: "Datos incompletos ❌"
-    });
+    return res.status(400).json({ mensaje: "Datos incompletos ❌" });
   }
 
+  // PASO 1: buscar edificio por QR
   db.query("SELECT * FROM edificios", (err, eds) => {
 
-    if (err) {
-      return res.status(500).json({
-        mensaje: "Error DB"
-      });
-    }
+    if (err) return res.status(500).json({ mensaje: "Error DB" });
 
-    const edificio = eds.find(e =>
-      normalizar(e.codigo_qr) === codigoEdificio
-    );
+    const edificio = eds.find(e => normalizar(e.codigo_qr) === codigoEdificio);
 
     if (!edificio) {
-      return res.json({
-        mensaje: "QR inválido ❌"
-      });
+      return res.json({ mensaje: "QR inválido ❌" });
     }
 
-    // =========================
-    // VALIDAR USUARIO
-    // =========================
+    // PASO 2: buscar usuario
     db.query(
-      `SELECT u.id,
-              u.nombre,
-              IFNULL(r.nombre,'usuario') AS rol
+      `SELECT u.id, u.nombre, IFNULL(r.nombre,'usuario') AS rol
        FROM usuarios u
-       LEFT JOIN roles r
-       ON u.rol_id = r.id
+       LEFT JOIN roles r ON u.rol_id = r.id
        WHERE u.cedula=?`,
       [cedula],
       (err, users) => {
 
-        if (err) {
-          return res.status(500).json({
-            mensaje: "Error usuario"
-          });
-        }
+        if (err) return res.status(500).json({ mensaje: "Error usuario" });
 
         if (users.length === 0) {
-          return res.json({
-            mensaje: "Usuario no existe ❌"
-          });
+          return res.json({ mensaje: "Usuario no existe ❌" });
         }
 
         const user = users[0];
 
-// =========================
-// VALIDAR DISPOSITIVO
-// ✅ CAMBIO 2: "admin" → "administracion"
-// =========================
-let sqlDispositivo = "";
-let paramsDispositivo = [];
-
-// =========================
-// ADMINISTRACION → TODOS LOS EDIFICIOS
-// =========================
-if(user.rol === "administracion"){
-
-  sqlDispositivo = `
-  SELECT * FROM dispositivos
-  WHERE cedula=?
-  AND device_id=?
-  AND autorizado=1
-  `;
-
-  paramsDispositivo = [
-    cedula,
-    deviceId
-  ];
-
-}else{
-
-  // =========================
-  // USUARIO NORMAL
-  // =========================
-  sqlDispositivo = `
-  SELECT * FROM dispositivos
-  WHERE cedula=?
-  AND device_id=?
-  AND edificio_id=?
-  `;
-
-  paramsDispositivo = [
-    cedula,
-    deviceId,
-    edificio.id
-  ];
-
-}
-
-db.query(
-  sqlDispositivo,
-  paramsDispositivo,
-  (err, devs) => {
-
-    if (err) {
-      return res.status(500).json({
-        mensaje: "Error dispositivos"
-      });
-    }
-
-    // =========================
-    // ADMINISTRACION NO AUTORIZADO
-    // ✅ CAMBIO 2 (continuación)
-    // =========================
-    if(devs.length === 0 && user.rol === "administracion"){
-
-      return res.status(403).json({
-        mensaje: "🚫 Dispositivo admin no autorizado"
-      });
-
-    }
-
-    // =========================
-// VALIDAR SI EL DEVICE YA
-// ESTÁ ASOCIADO A OTRA CÉDULA
-// =========================
-db.query(
-  `SELECT * FROM dispositivos
-   WHERE device_id=?
-   AND cedula<>?`,
-  [deviceId, cedula],
-  (err, usados) => {
-
-    if (err) {
-
-      return res.status(500).json({
-        mensaje:"Error validando dispositivo"
-      });
-
-    }
-
-    // ESTE CELULAR YA ES DE OTRA PERSONA
-    if (usados.length > 0) {
-
-      return res.status(403).json({
-        mensaje: "🚫 Este celular ya pertenece a otra persona"
-      });
-
-    }
-
-    // =========================
-    // VALIDAR SI LA CÉDULA YA
-    // TIENE OTRO CELULAR
-    // =========================
-    db.query(
-      `SELECT * FROM dispositivos
-       WHERE cedula=?
-       AND device_id<>?`,
-      [cedula, deviceId],
-      (err, otrosDevices) => {
-
-        if (err) {
-
-          return res.status(500).json({
-            mensaje:"Error validando cédula"
-          });
-
-        }
-
-        // ESTA CÉDULA YA TIENE OTRO DEVICE
-        // ✅ CAMBIO 2 (continuación)
-        if (
-  otrosDevices.length > 0 &&
-  user.rol !== "administracion"
-) {
-
-  return res.status(403).json({
-    mensaje:"🚫 Esta cédula ya está asociada a otro celular"
-  });
-
-}
-
-        // =========================
-        // NO EXISTE → CREAR PENDIENTE
-        // ✅ CAMBIO 2 (continuación)
-        // =========================
-        if (devs.length === 0 && user.rol !== "administracion") {
-
-          db.query(
-            `INSERT INTO dispositivos
-            (cedula, device_id, edificio_id, autorizado)
-            VALUES (?, ?, ?, 0)`,
-            [cedula, deviceId, edificio.id]
-          );
-
-          return res.status(403).json({
-            mensaje: "⏳ Dispositivo pendiente de aprobación"
-          });
-
-        }
-
-        // =========================
-        // VALIDAR AUTORIZACIÓN
-        // ✅ CAMBIO 2 (continuación)
-        // =========================
-        const dispositivo = devs[0];
-
-        if (
-          dispositivo.autorizado != 1 &&
-          user.rol !== "administracion"
-        ) {
-
-          return res.status(403).json({
-            mensaje: "🚫 Dispositivo no autorizado"
-          });
-
-        }
-
-        // =========================
-        // VALIDAR DEVICE
-        // =========================
-        if(dispositivo.device_id !== deviceId){
-
-          return res.status(403).json({
-            mensaje:"🚫 Este celular no está autorizado"
-          });
-
-        }
-
-        // =========================
-        // ÚLTIMO REGISTRO
-        // =========================
+        // PASO 3: verificar que este device no esté registrado a OTRA cédula
         db.query(
-          `SELECT * FROM registros
-           WHERE cedula=?
-           AND edificio_id=?
-           ORDER BY fecha_hora DESC
-           LIMIT 1`,
-          [cedula, edificio.id],
-          (err, last) => {
+          `SELECT * FROM dispositivos WHERE device_id=? AND cedula<>?`,
+          [deviceId, cedula],
+          (err, usados) => {
 
-            let tipo = "Entrada";
+            if (err) return res.status(500).json({ mensaje: "Error validando dispositivo" });
 
-            if(last.length > 0){
+            if (usados.length > 0) {
+              return res.status(403).json({
+                mensaje: "🚫 Este celular ya pertenece a otra persona"
+              });
+            }
 
-              tipo =
-              last[0].tipo_registro === "Entrada"
-              ? "Salida"
-              : "Entrada";
+            // ================================================
+            // FLUJO ROL ADMINISTRACION
+            // ================================================
+            if (user.rol === "administracion") {
+
+              // Buscar si ya tiene dispositivos registrados
+              db.query(
+                `SELECT * FROM dispositivos WHERE cedula=?`,
+                [cedula],
+                (err, adminDevs) => {
+
+                  if (err) return res.status(500).json({ mensaje: "Error dispositivos admin" });
+
+                  if (adminDevs.length === 0) {
+
+                    // PRIMERA VEZ: capturar device_id y autorizar en TODOS los edificios
+                    db.query("SELECT id FROM edificios", (err, todosEds) => {
+
+                      if (err) return res.status(500).json({ mensaje: "Error edificios" });
+
+                      const values = todosEds.map(e => [cedula, deviceId, e.id, 1]);
+
+                      db.query(
+                        "INSERT INTO dispositivos (cedula, device_id, edificio_id, autorizado) VALUES ?",
+                        [values],
+                        (err) => {
+
+                          if (err) return res.status(500).json({ mensaje: "Error registrando admin" });
+
+                          registrarMovimiento(user, edificio, cedula, res);
+
+                        }
+                      );
+
+                    });
+
+                  } else {
+
+                    // YA REGISTRADO: verificar que el device coincida
+                    const essuyo = adminDevs.some(d => d.device_id === deviceId);
+
+                    if (!essuyo) {
+                      return res.status(403).json({
+                        mensaje: "🚫 Este celular no corresponde a este administrador"
+                      });
+                    }
+
+                    registrarMovimiento(user, edificio, cedula, res);
+
+                  }
+
+                }
+              );
+
+              return; // no continuar al flujo normal
 
             }
 
+            // ================================================
+            // FLUJO ROLES 2, 3, 4
+            // ================================================
+
+            // Verificar que esta cédula no tenga OTRO device distinto
             db.query(
-  `INSERT INTO registros
-  (nombre, cedula, edificio,
-  tipo_registro, edificio_id, rol)
-  VALUES (?,?,?,?,?,?)`,
-  [
-    user.nombre,
-    cedula,
-    edificio.nombre,
-    tipo,
-    edificio.id,
-    user.rol
-  ],
-  () => {
+              `SELECT * FROM dispositivos WHERE cedula=? AND device_id<>?`,
+              [cedula, deviceId],
+              (err, otrosDevices) => {
 
-    res.json({
-      mensaje: `${tipo} registrada ✅`,
-      edificio: edificio.nombre
-    });
+                if (err) return res.status(500).json({ mensaje: "Error validando cédula" });
 
-  }
-);
+                if (otrosDevices.length > 0) {
+                  return res.status(403).json({
+                    mensaje: "🚫 Esta cédula ya está asociada a otro celular"
+                  });
+                }
+
+                // Buscar si ya existe registro para cedula + device + edificio
+                db.query(
+                  `SELECT * FROM dispositivos
+                   WHERE cedula=? AND device_id=? AND edificio_id=?`,
+                  [cedula, deviceId, edificio.id],
+                  (err, devs) => {
+
+                    if (err) return res.status(500).json({ mensaje: "Error dispositivos" });
+
+                    if (devs.length === 0) {
+
+                      // NUEVO: insertar pendiente y avisar
+                      db.query(
+                        `INSERT INTO dispositivos (cedula, device_id, edificio_id, autorizado)
+                         VALUES (?, ?, ?, 0)`,
+                        [cedula, deviceId, edificio.id]
+                      );
+
+                      return res.status(403).json({
+                        mensaje: "⏳ Dispositivo pendiente de aprobación"
+                      });
+
+                    }
+
+                    const dispositivo = devs[0];
+
+                    if (dispositivo.autorizado != 1) {
+                      return res.status(403).json({
+                        mensaje: "🚫 Dispositivo no autorizado aún"
+                      });
+                    }
+
+                    // Autorizado: registrar entrada/salida
+                    registrarMovimiento(user, edificio, cedula, res);
+
+                  }
+                );
+
+              }
+            );
 
           }
-        );       // cierra db.query último registro
+        );
 
-      });        // cierra db.query otrosDevices
+      }
+    );
 
-    });          // cierra db.query usados
+  });
 
-  });            // cierra db.query dispositivos
+});
+// =========================
+// HELPER: REGISTRAR ENTRADA O SALIDA
+// =========================
+function registrarMovimiento(user, edificio, cedula, res) {
 
-  });            // cierra db.query usuarios
+  const db2 = db; // referencia al mismo pool
 
-  });            // cierra db.query edificios
+  db2.query(
+    `SELECT * FROM registros
+     WHERE cedula=? AND edificio_id=?
+     ORDER BY fecha_hora DESC LIMIT 1`,
+    [cedula, edificio.id],
+    (err, last) => {
 
-});              // cierra app.post /registro
+      const tipo = (last && last.length > 0 && last[0].tipo_registro === "Entrada")
+        ? "Salida"
+        : "Entrada";
+
+      db2.query(
+        `INSERT INTO registros
+         (nombre, cedula, edificio, tipo_registro, edificio_id, rol)
+         VALUES (?,?,?,?,?,?)`,
+        [user.nombre, cedula, edificio.nombre, tipo, edificio.id, user.rol],
+        () => {
+          res.json({
+            mensaje: `${tipo} registrada ✅`,
+            edificio: edificio.nombre
+          });
+        }
+      );
+
+    }
+  );
+
+}
 
 // =========================
 // CRUD USUARIOS
