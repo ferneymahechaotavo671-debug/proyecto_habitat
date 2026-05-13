@@ -521,20 +521,50 @@ app.post("/registro", (req, res) => {
 // =========================
 function registrarMovimiento(user, edificio, cedula, res) {
 
-  const db2 = db; // referencia al mismo pool
-
-  db2.query(
+  db.query(
     `SELECT * FROM registros
      WHERE cedula=? AND edificio_id=?
      ORDER BY fecha_hora DESC LIMIT 1`,
     [cedula, edificio.id],
     (err, last) => {
 
+      if (err) return res.status(500).json({ mensaje: "Error consultando registros" });
+
+      const ahora = new Date();
+
+      if (last && last.length > 0) {
+
+        const ultimo = last[0];
+        const fechaUltimo = new Date(ultimo.fecha_hora);
+        const diffMin = (ahora - fechaUltimo) / (1000 * 60);
+        const tipoUltimo = ultimo.tipo_registro;
+
+        // Bloquear si no ha pasado 1 hora desde el último registro
+        if (diffMin < 60) {
+
+          const minRestantes = Math.ceil(60 - diffMin);
+
+          // Mensaje específico según el tipo del último registro
+          let msg = "";
+
+          if (tipoUltimo === "Entrada") {
+            msg = `⚠️ Ya tienes una Entrada registrada. Podrás registrar tu Salida en ${minRestantes} minuto${minRestantes !== 1 ? "s" : ""}.`;
+          } else {
+            msg = `⚠️ Ya tienes una Salida registrada. Podrás registrar tu próxima Entrada en ${minRestantes} minuto${minRestantes !== 1 ? "s" : ""}.`;
+          }
+
+          return res.status(429).json({ mensaje: msg });
+
+        }
+
+      }
+
+      // Han pasado más de 60 min o es el primer registro
       const tipo = (last && last.length > 0 && last[0].tipo_registro === "Entrada")
         ? "Salida"
         : "Entrada";
 
-      db2.query(
+      db.query(
         `INSERT INTO registros
          (nombre, cedula, edificio, tipo_registro, edificio_id, rol)
          VALUES (?,?,?,?,?,?)`,

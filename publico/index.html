@@ -4,15 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Registro QR PRO</title>
-
+ 
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0f3d2e">
 <link rel="apple-touch-icon" href="/logo.png">
-
+ 
 <script src="https://unpkg.com/html5-qrcode"></script>
-
+ 
 <style>
-
+ 
 body{
 font-family:Arial;
 background:linear-gradient(135deg,#0f3d2e,#1f7a63,#38b48b);
@@ -21,7 +21,7 @@ justify-content:center;
 align-items:center;
 min-height:100vh;
 }
-
+ 
 /* CONTENEDOR */
 .container{
 background:white;
@@ -31,14 +31,14 @@ width:90%;
 max-width:420px;
 text-align:center;
 box-shadow:0 10px 25px rgba(0,0,0,0.2);
-
+ 
 /* 🔥 FIX IMPORTANTE */
 margin-top:80px;
 }
-
+ 
 h2{color:#0f3d2e}
 h3{color:#1f7a63}
-
+ 
 input,button{
 width:100%;
 padding:12px;
@@ -47,30 +47,30 @@ border-radius:10px;
 border:1px solid #ddd;
 font-size:16px;
 }
-
+ 
 button{
 background:#1f7a63;
 color:white;
 border:none;
 cursor:pointer;
 }
-
+ 
 #estado{
 margin-top:10px;
 padding:10px;
 border-radius:10px;
 font-weight:bold;
 }
-
+ 
 .ok{background:#e6fff0;color:#1f7a63}
 .error{background:#ffe6e6;color:red}
-
+ 
 #reader{
 margin-top:15px;
 border-radius:12px;
 overflow:hidden;
 }
-
+ 
 /* HEADER LOGO */
 .header{
 position:fixed;
@@ -81,7 +81,7 @@ display:flex;
 justify-content:center;
 z-index:10;
 }
-
+ 
 .header-box{
 background:white;
 padding:10px 20px;
@@ -91,21 +91,21 @@ align-items:center;
 gap:10px;
 box-shadow:0 5px 15px rgba(0,0,0,0.2);
 }
-
+ 
 .header-box img{
 width:50px;
 }
-
+ 
 .header-box span{
 font-weight:bold;
 color:#0f3d2e;
 }
-
+ 
 </style>
 </head>
-
+ 
 <body>
-
+ 
 <!-- HEADER LOGO -->
 <div class="header">
   <div class="header-box">
@@ -113,39 +113,39 @@ color:#0f3d2e;
     <span>Sistema de Registro QR</span>
   </div>
 </div>
-
+ 
 <!-- CONTENEDOR -->
 <div class="container">
-
+ 
 <h2>Registro QR</h2>
-
+ 
 <h3 id="edificio">Validando...</h3>
-
+ 
 <div id="estado">Esperando validación...</div>
-
+ 
 <form id="form">
 <input id="cedula" placeholder="Cédula" required>
 <button>Registrar entrada/salida</button>
 </form>
-
+ 
 <button onclick="camara()">📷 Escanear QR</button>
 <button id="installBtn" style="display:none;">
 📲 Instalar App
 </button>
-
+ 
 <div id="reader"></div>
-
+ 
 </div>
-
+ 
 <script>
-
+ 
 // =========================
 // QR PARAM
 // =========================
 const params = new URLSearchParams(location.search);
-
+ 
 let codigo = params.get("edificio");
-
+ 
 if (codigo) {
   codigo = codigo
     .toLowerCase()
@@ -153,7 +153,7 @@ if (codigo) {
     .replace(/\s+/g, "")
     .replace(/[^a-z0-9]/g, "");
 }
-
+ 
 // =========================
 // DEVICE ID
 // =========================
@@ -165,24 +165,24 @@ function getDeviceId(){
   }
   return id;
 }
-
+ 
 // =========================
 // CARGAR EDIFICIO
 // =========================
 async function cargarEdificio(){
-
+ 
   if(!codigo) return;
-
+ 
   const res = await fetch("/admin/edificios");
   const data = await res.json();
-
+ 
   const ed = data.find(e =>
     (e.codigo_qr || "").toLowerCase().replace(/\s+/g,"") === codigo
   );
-
+ 
   const titulo = document.getElementById("edificio");
   const estado = document.getElementById("estado");
-
+ 
   if(ed){
     titulo.innerText = ed.nombre;
     estado.innerText = "Edificio válido ✔";
@@ -193,40 +193,40 @@ async function cargarEdificio(){
     estado.className = "error";
   }
 }
-
+ 
 cargarEdificio();
-
+ 
 // =========================
 // CAMARA QR
 // =========================
 function camara(){
-
+ 
 const scanner = new Html5Qrcode("reader");
-
+ 
 Html5Qrcode.getCameras().then(devices => {
-
+ 
 if (!devices || devices.length === 0) {
   alert("No hay cámaras disponibles");
   return;
 }
-
+ 
 // 🔥 BUSCAR CÁMARA TRASERA
 let backCamera = devices.find(d => {
-
+ 
 const label = (d.label || "").toLowerCase();
-
+ 
 return (
   label.includes("back") ||
   label.includes("rear") ||
   label.includes("environment") ||
   label.includes("trasera")
 );
-
+ 
 });
-
+ 
 // 🔥 SI NO ENCUENTRA, USA LA ÚLTIMA (NORMALMENTE ES TRASERA)
 let cameraId = backCamera ? backCamera.id : devices[devices.length - 1].id;
-
+ 
 scanner.start(
 cameraId,
 {
@@ -235,35 +235,74 @@ qrbox: 250,
 aspectRatio: 1.0
 },
 async (text) => {
-
+ 
 await scanner.stop();
 scanner.clear();
-
+ 
 let clean = text
 .toLowerCase()
 .replace(/^https?:\/\/.*[?&]edificio=/,"")
 .replace(/[^a-z0-9]/g,"");
-
+ 
 location.href = "/?edificio=" + clean;
 }
 );
-
+ 
 }).catch(err=>{
 console.error(err);
 alert("Error accediendo a cámara ❌");
 });
-
+ 
 }
-
+ 
 // =========================
-// ✅ CAMBIO 3: REGISTRO CON CLASE ok/error SEGÚN STATUS HTTP
+// BLOQUEO 5 MINUTOS ANTI DOBLE REGISTRO
+// =========================
+let bloqueado = false;
+let intervalo = null;
+ 
+function iniciarBloqueo(btnRegistrar, inputCedula) {
+ 
+  bloqueado = true;
+  inputCedula.disabled = true;
+  btnRegistrar.disabled = true;
+ 
+  let segundos = 300; // 5 minutos
+ 
+  intervalo = setInterval(() => {
+ 
+    segundos--;
+ 
+    const min = Math.floor(segundos / 60);
+    const seg = segundos % 60;
+    btnRegistrar.innerText = `⏳ Espera ${min}:${seg.toString().padStart(2,"0")}`;
+ 
+    if (segundos <= 0) {
+      clearInterval(intervalo);
+      bloqueado = false;
+      inputCedula.disabled = false;
+      inputCedula.value = "";
+      btnRegistrar.disabled = false;
+      btnRegistrar.innerText = "Registrar entrada/salida";
+    }
+ 
+  }, 1000);
+ 
+}
+ 
+// =========================
+// REGISTRO CON BLOQUEO
 // =========================
 document.getElementById("form").addEventListener("submit", async (e) => {
-
+ 
   e.preventDefault();
-
+ 
+  if (bloqueado) return;
+ 
   const cedula = document.getElementById("cedula").value;
-
+  const btnRegistrar = document.querySelector("#form button");
+  const inputCedula = document.getElementById("cedula");
+ 
   const res = await fetch("/registro", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -273,69 +312,74 @@ document.getElementById("form").addEventListener("submit", async (e) => {
       deviceId: getDeviceId()
     })
   });
-
+ 
   const data = await res.json();
-
+ 
   const estado = document.getElementById("estado");
-
   estado.innerText = data.mensaje;
-
-  // Distingue ok de error según el status HTTP
   estado.className = res.ok ? "ok" : "error";
-
-  setTimeout(() => {
-    estado.innerText = "Esperando validación...";
-    estado.className = "";
-  }, 3000);
-
+ 
+  // Bloquear botón solo si el registro fue exitoso (evita doble click)
+  // El control real de 1 hora lo hace el servidor
+  if (res.ok) {
+    iniciarBloqueo(btnRegistrar, inputCedula);
+  } else {
+    // Error o advertencia: limpiar cédula y mensaje después de 4 seg
+    document.getElementById("cedula").value = "";
+    setTimeout(() => {
+      estado.innerText = "Esperando validación...";
+      estado.className = "";
+    }, 4000);
+  }
+ 
 });
-
+ 
 // =========================
 // INSTALAR APP PWA
 // =========================
 let deferredPrompt;
-
+ 
 window.addEventListener("beforeinstallprompt", (e)=>{
-
+ 
 e.preventDefault();
-
+ 
 deferredPrompt = e;
-
+ 
 document.getElementById("installBtn").style.display = "block";
-
+ 
 });
-
+ 
 document.getElementById("installBtn").addEventListener("click", async ()=>{
-
+ 
 if(!deferredPrompt) return;
-
+ 
 deferredPrompt.prompt();
-
+ 
 await deferredPrompt.userChoice;
-
+ 
 deferredPrompt = null;
-
+ 
 document.getElementById("installBtn").style.display = "none";
-
+ 
 });
-
+ 
 // =========================
 // REGISTRAR SERVICE WORKER
 // =========================
 if ("serviceWorker" in navigator) {
-
+ 
 window.addEventListener("load", ()=>{
-
+ 
 navigator.serviceWorker
 .register("/sw.js")
 .then(()=>console.log("SW activo"))
 .catch(err=>console.log("SW error", err));
-
+ 
 });
-
+ 
 }
-
+ 
 </script>
-
+ 
 </body>
 </html>
