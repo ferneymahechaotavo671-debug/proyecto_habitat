@@ -223,6 +223,7 @@ setInterval(() => {
       ON r1.cedula = r2.cedula 
       AND r1.edificio_id = r2.edificio_id
       AND r2.id > r1.id
+      AND r2.tipo_registro = 'Salida'
     SET r1.observacion = '🚨 Salida no registrada'
     WHERE r1.tipo_registro = 'Entrada'
       AND r2.id IS NULL
@@ -299,22 +300,43 @@ app.post("/registro", (req, res) => {
 // =========================
 // VALIDAR DISPOSITIVO
 // =========================
+let sqlDispositivo = "";
+let paramsDispositivo = [];
+
 // =========================
-// VALIDAR DISPOSITIVO
+// ADMIN → TODOS LOS EDIFICIOS
 // =========================
-let sqlDispositivo = `
-SELECT * FROM dispositivos
-WHERE cedula=?
-AND device_id=?
-`;
+if(user.rol === "admin"){
 
-let paramsDispositivo = [cedula, deviceId];
+  sqlDispositivo = `
+  SELECT * FROM dispositivos
+  WHERE cedula=?
+  AND device_id=?
+  AND autorizado=1
+  `;
 
-// SI NO ES ADMIN → VALIDAR TAMBIÉN EDIFICIO
-if(user.rol !== "admin"){
+  paramsDispositivo = [
+    cedula,
+    deviceId
+  ];
 
-  sqlDispositivo += " AND edificio_id=?";
-  paramsDispositivo.push(edificio.id);
+}else{
+
+  // =========================
+  // USUARIO NORMAL
+  // =========================
+  sqlDispositivo = `
+  SELECT * FROM dispositivos
+  WHERE cedula=?
+  AND device_id=?
+  AND edificio_id=?
+  `;
+
+  paramsDispositivo = [
+    cedula,
+    deviceId,
+    edificio.id
+  ];
 
 }
 
@@ -330,7 +352,7 @@ db.query(
     }
 
     // =========================
-    // ADMIN SIN DEVICE AUTORIZADO
+    // ADMIN NO AUTORIZADO
     // =========================
     if(devs.length === 0 && user.rol === "admin"){
 
@@ -362,7 +384,7 @@ db.query(
         // =========================
         // NO EXISTE → CREAR PENDIENTE
         // =========================
-        if (devs.length === 0) {
+        if (devs.length === 0 && user.rol !== "admin") {
 
           db.query(
             `INSERT INTO dispositivos
