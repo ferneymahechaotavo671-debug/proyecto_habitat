@@ -299,6 +299,9 @@ app.post("/registro", (req, res) => {
 // =========================
 // VALIDAR DISPOSITIVO
 // =========================
+// =========================
+// VALIDAR DISPOSITIVO
+// =========================
 let sqlDispositivo = `
 SELECT * FROM dispositivos
 WHERE cedula=?
@@ -308,17 +311,10 @@ AND device_id=?
 let paramsDispositivo = [cedula, deviceId];
 
 // SI NO ES ADMIN → VALIDAR TAMBIÉN EDIFICIO
-if (devs.length === 0 && user.rol !== "admin") {
-  if (devs.length === 0 && user.rol === "admin") {
+if(user.rol !== "admin"){
 
-  return res.status(403).json({
-    mensaje: "🚫 Dispositivo admin no autorizado"
-  });
-
-}
-
-sqlDispositivo += " AND edificio_id=?";
-paramsDispositivo.push(edificio.id);
+  sqlDispositivo += " AND edificio_id=?";
+  paramsDispositivo.push(edificio.id);
 
 }
 
@@ -331,6 +327,17 @@ db.query(
       return res.status(500).json({
         mensaje: "Error dispositivos"
       });
+    }
+
+    // =========================
+    // ADMIN SIN DEVICE AUTORIZADO
+    // =========================
+    if(devs.length === 0 && user.rol === "admin"){
+
+      return res.status(403).json({
+        mensaje: "🚫 Dispositivo admin no autorizado"
+      });
+
     }
 
     // =========================
