@@ -256,36 +256,37 @@ alert("Error accediendo a cámara ❌");
 }
 
 // =========================
-// REGISTRO
+// ✅ CAMBIO 3: REGISTRO CON CLASE ok/error SEGÚN STATUS HTTP
 // =========================
-document.getElementById("form").addEventListener("submit", async (e)=>{
+document.getElementById("form").addEventListener("submit", async (e) => {
 
-e.preventDefault();
+  e.preventDefault();
 
-const cedula = document.getElementById("cedula").value;
+  const cedula = document.getElementById("cedula").value;
 
-const res = await fetch("/registro",{
-method:"POST",
-headers:{"Content-Type":"application/json"},
-body:JSON.stringify({
-cedula,
-codigoEdificio: codigo,
-deviceId: getDeviceId()
-})
-});
+  const res = await fetch("/registro", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      cedula,
+      codigoEdificio: codigo,
+      deviceId: getDeviceId()
+    })
+  });
 
-const data = await res.json();
+  const data = await res.json();
 
-const estado = document.getElementById("estado");
+  const estado = document.getElementById("estado");
 
-estado.innerText = data.mensaje;
+  estado.innerText = data.mensaje;
 
-estado.className = "ok";
+  // Distingue ok de error según el status HTTP
+  estado.className = res.ok ? "ok" : "error";
 
-setTimeout(()=>{
-estado.innerText = "Esperando validación...";
-estado.className = "";
-},2500);
+  setTimeout(() => {
+    estado.innerText = "Esperando validación...";
+    estado.className = "";
+  }, 3000);
 
 });
 

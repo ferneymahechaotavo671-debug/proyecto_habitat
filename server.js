@@ -134,6 +134,23 @@ res.json({ok:true});
 });
 
 // =========================
+// ✅ CAMBIO 1: ENDPOINT FALTANTE
+// =========================
+app.post("/admin/agregar-dispositivo", validarAdmin, (req, res) => {
+  const { cedula, device_id, edificio_id } = req.body;
+  db.query(
+    `INSERT INTO dispositivos (cedula, device_id, edificio_id, autorizado)
+     VALUES (?, ?, ?, 1)
+     ON DUPLICATE KEY UPDATE autorizado=1`,
+    [cedula, device_id || "", edificio_id],
+    (err) => {
+      if (err) return res.status(500).json(err);
+      res.json({ ok: true });
+    }
+  );
+});
+
+// =========================
 // REGISTROS + OBSERVACIÓN 12H (MEJORADO)
 // =========================
 app.get("/admin/registros", validarAdmin, (req, res) => {
@@ -299,14 +316,15 @@ app.post("/registro", (req, res) => {
 
 // =========================
 // VALIDAR DISPOSITIVO
+// ✅ CAMBIO 2: "admin" → "administracion"
 // =========================
 let sqlDispositivo = "";
 let paramsDispositivo = [];
 
 // =========================
-// ADMIN → TODOS LOS EDIFICIOS
+// ADMINISTRACION → TODOS LOS EDIFICIOS
 // =========================
-if(user.rol === "admin"){
+if(user.rol === "administracion"){
 
   sqlDispositivo = `
   SELECT * FROM dispositivos
@@ -352,9 +370,10 @@ db.query(
     }
 
     // =========================
-    // ADMIN NO AUTORIZADO
+    // ADMINISTRACION NO AUTORIZADO
+    // ✅ CAMBIO 2 (continuación)
     // =========================
-    if(devs.length === 0 && user.rol === "admin"){
+    if(devs.length === 0 && user.rol === "administracion"){
 
       return res.status(403).json({
         mensaje: "🚫 Dispositivo admin no autorizado"
@@ -363,28 +382,70 @@ db.query(
     }
 
     // =========================
-    // VALIDAR SI EL DEVICE YA
-    // ESTÁ ASOCIADO A OTRA CÉDULA
+// VALIDAR SI EL DEVICE YA
+// ESTÁ ASOCIADO A OTRA CÉDULA
+// =========================
+db.query(
+  `SELECT * FROM dispositivos
+   WHERE device_id=?
+   AND cedula<>?`,
+  [deviceId, cedula],
+  (err, usados) => {
+
+    if (err) {
+
+      return res.status(500).json({
+        mensaje:"Error validando dispositivo"
+      });
+
+    }
+
+    // ESTE CELULAR YA ES DE OTRA PERSONA
+    if (usados.length > 0) {
+
+      return res.status(403).json({
+        mensaje: "🚫 Este celular ya pertenece a otra persona"
+      });
+
+    }
+
+    // =========================
+    // VALIDAR SI LA CÉDULA YA
+    // TIENE OTRO CELULAR
     // =========================
     db.query(
       `SELECT * FROM dispositivos
-       WHERE device_id=?
-       AND cedula<>?`,
-      [deviceId, cedula],
-      (err, usados) => {
+       WHERE cedula=?
+       AND device_id<>?`,
+      [cedula, deviceId],
+      (err, otrosDevices) => {
 
-        if (usados.length > 0) {
+        if (err) {
 
-          return res.status(403).json({
-            mensaje: "🚫 Este celular ya pertenece a otra persona"
+          return res.status(500).json({
+            mensaje:"Error validando cédula"
           });
 
         }
 
+        // ESTA CÉDULA YA TIENE OTRO DEVICE
+        // ✅ CAMBIO 2 (continuación)
+        if (
+  otrosDevices.length > 0 &&
+  user.rol !== "administracion"
+) {
+
+  return res.status(403).json({
+    mensaje:"🚫 Esta cédula ya está asociada a otro celular"
+  });
+
+}
+
         // =========================
         // NO EXISTE → CREAR PENDIENTE
+        // ✅ CAMBIO 2 (continuación)
         // =========================
-        if (devs.length === 0 && user.rol !== "admin") {
+        if (devs.length === 0 && user.rol !== "administracion") {
 
           db.query(
             `INSERT INTO dispositivos
@@ -401,12 +462,13 @@ db.query(
 
         // =========================
         // VALIDAR AUTORIZACIÓN
+        // ✅ CAMBIO 2 (continuación)
         // =========================
         const dispositivo = devs[0];
 
         if (
           dispositivo.autorizado != 1 &&
-          user.rol !== "admin"
+          user.rol !== "administracion"
         ) {
 
           return res.status(403).json({
@@ -450,43 +512,42 @@ db.query(
             }
 
             db.query(
-              `INSERT INTO registros
-              (nombre, cedula, edificio,
-              tipo_registro, edificio_id, rol)
-              VALUES (?,?,?,?,?,?)`,
-              [
-                user.nombre,
-                cedula,
-                edificio.nombre,
-                tipo,
-                edificio.id,
-                user.rol
-              ],
-              () => {
+  `INSERT INTO registros
+  (nombre, cedula, edificio,
+  tipo_registro, edificio_id, rol)
+  VALUES (?,?,?,?,?,?)`,
+  [
+    user.nombre,
+    cedula,
+    edificio.nombre,
+    tipo,
+    edificio.id,
+    user.rol
+  ],
+  () => {
 
-                res.json({
-                  mensaje: `${tipo} registrada ✅`,
-                  edificio: edificio.nombre
-                });
-
-              }
-            );
-
-          }
-        );
-
-      }
-    );
+    res.json({
+      mensaje: `${tipo} registrada ✅`,
+      edificio: edificio.nombre
+    });
 
   }
 );
 
-      }
-    );
+          }
+        );       // cierra db.query último registro
 
-  });
+      });        // cierra db.query otrosDevices
 
-});
+    });          // cierra db.query usados
+
+  });            // cierra db.query dispositivos
+
+  });            // cierra db.query usuarios
+
+  });            // cierra db.query edificios
+
+});              // cierra app.post /registro
 
 // =========================
 // CRUD USUARIOS
