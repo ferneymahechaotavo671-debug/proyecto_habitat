@@ -166,11 +166,11 @@ app.get("/admin/registros", validarAdmin, (req, res) => {
 
     const ahora = new Date();
 
-    const procesado = data.map((r, index) => {
+    const procesado = data.map(r => {
 
       let obs = "";
 
-      // SOLO VALIDAR ENTRADAS
+      // VALIDAR SOLO ENTRADAS
       if (r.tipo_registro === "Entrada") {
 
         const entrada = new Date(r.fecha_hora);
@@ -178,7 +178,7 @@ app.get("/admin/registros", validarAdmin, (req, res) => {
         const diffHoras =
           (ahora - entrada) / (1000 * 60 * 60);
 
-        // BUSCAR SI EXISTE SALIDA DESPUÉS
+        // BUSCAR SI HAY UNA SALIDA DESPUÉS
         const tieneSalida = data.some(s => {
 
           return (
@@ -190,7 +190,7 @@ app.get("/admin/registros", validarAdmin, (req, res) => {
 
         });
 
-        // SOLO ALERTA SI NO TIENE SALIDA
+        // ALERTA SOLO SI NO HAY SALIDA
         if (diffHoras > 12 && !tieneSalida) {
 
           obs = "🚨 Salida no registrada";
@@ -223,7 +223,6 @@ setInterval(() => {
       ON r1.cedula = r2.cedula 
       AND r1.edificio_id = r2.edificio_id
       AND r2.id > r1.id
-      AND r2.tipo_registro = 'Salida'
     SET r1.observacion = '🚨 Salida no registrada'
     WHERE r1.tipo_registro = 'Entrada'
       AND r2.id IS NULL
@@ -300,8 +299,6 @@ app.post("/registro", (req, res) => {
 // =========================
 // VALIDAR DISPOSITIVO
 // =========================
-function validarDispositivo(){
-
 db.query(
   `SELECT * FROM dispositivos
    WHERE cedula=?
@@ -315,157 +312,6 @@ db.query(
         mensaje: "Error dispositivos"
       });
     }
-
-    // =========================
-    // VALIDAR SI EL DEVICE YA
-    // ESTÁ ASOCIADO A OTRA CÉDULA
-    // =========================
-    db.query(
-      `SELECT * FROM dispositivos
-       WHERE device_id=?
-       AND cedula<>?`,
-      [deviceId, cedula],
-      (err, usados) => {
-
-        if (usados.length > 0) {
-
-          return res.status(403).json({
-            mensaje: "🚫 Este celular ya pertenece a otra persona"
-          });
-
-        }
-
-        // =========================
-        // NO EXISTE → CREAR PENDIENTE
-        // =========================
-        if (devs.length === 0) {
-
-          db.query(
-            `INSERT INTO dispositivos
-            (cedula, device_id, edificio_id, autorizado)
-            VALUES (?, ?, ?, 0)`,
-            [cedula, deviceId, edificio.id]
-          );
-
-          return res.status(403).json({
-            mensaje: "⏳ Dispositivo pendiente de aprobación"
-          });
-
-        }
-
-        // =========================
-        // VALIDAR AUTORIZACIÓN
-        // =========================
-        const dispositivo = devs[0];
-
-        if (
-          dispositivo.autorizado != 1 &&
-          user.rol !== "admin"
-        ) {
-
-          return res.status(403).json({
-            mensaje: "🚫 Dispositivo no autorizado"
-          });
-
-        }
-
-        // =========================
-        // ÚLTIMO REGISTRO
-        // =========================
-        db.query(
-          `SELECT * FROM registros
-           WHERE cedula=?
-           AND edificio_id=?
-           ORDER BY fecha_hora DESC
-           LIMIT 1`,
-          [cedula, edificio.id],
-          (err, last) => {
-
-            let tipo = "Entrada";
-
-            if(last.length > 0){
-
-              tipo =
-              last[0].tipo_registro === "Entrada"
-              ? "Salida"
-              : "Entrada";
-
-            }
-
-            db.query(
-              `INSERT INTO registros
-              (nombre, cedula, edificio,
-              tipo_registro, edificio_id, rol)
-              VALUES (?,?,?,?,?,?)`,
-              [
-                user.nombre,
-                cedula,
-                edificio.nombre,
-                tipo,
-                edificio.id,
-                user.rol
-              ],
-              () => {
-
-                res.json({
-                  mensaje: `${tipo} registrada ✅`,
-                  edificio: edificio.nombre
-                });
-
-              }
-            );
-
-          }
-        );
-
-      }
-    );
-
-  }
-);
-
-}
-
-// =========================
-// ADMINISTRACIÓN = ACCESO TOTAL
-// =========================
-if(user.rol_id == 1){
-
-validarDispositivo();
-
-}else{
-
-// =========================
-// VALIDAR USUARIO_EDIFICIO
-// =========================
-db.query(
-`SELECT * FROM usuario_edificio
-WHERE usuario_id=? AND edificio_id=?`,
-[user.id, edificio.id],
-(err, permisos)=>{
-
-if(err){
-
-return res.status(500).json({
-mensaje:"Error permisos"
-});
-
-}
-
-if(permisos.length === 0){
-
-return res.status(403).json({
-mensaje:"🚫 No tienes acceso a este edificio"
-});
-
-}
-
-// SI TIENE PERMISO
-validarDispositivo();
-
-});
-
-}
 
     // =========================
     // VALIDAR SI EL DEVICE YA
@@ -591,6 +437,8 @@ validarDispositivo();
 
   });
 
+});
+
 // =========================
 // CRUD USUARIOS
 // =========================
@@ -708,4 +556,4 @@ res.end();
 // =========================
 // SERVER
 // =========================
-app.listen(PORT, () => console.log("Servidor corriendo en", PORT));
+app.listen(PORT, () => console.log("Servidor corriendo en", PORT));  
