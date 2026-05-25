@@ -9,16 +9,10 @@ const PORT = process.env.PORT || 8080;
 
 const PASSWORD_ADMIN = "Habitat2026";
 
-// =========================
-// MIDDLEWARE
-// =========================
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "publico")));
 
-// =========================
-// AUTH ADMIN
-// =========================
 function validarAdmin(req, res, next) {
   const auth = req.headers.authorization;
   if (!auth || auth !== PASSWORD_ADMIN) {
@@ -27,9 +21,6 @@ function validarAdmin(req, res, next) {
   next();
 }
 
-// =========================
-// MYSQL
-// =========================
 const db = mysql.createConnection({
   host: process.env.MYSQLHOST,
   user: process.env.MYSQLUSER,
@@ -43,9 +34,6 @@ db.connect(err => {
   else console.log("✅ MySQL conectado");
 });
 
-// =========================
-// NORMALIZAR
-// =========================
 function normalizar(t) {
   return (t || "")
     .toString()
@@ -55,9 +43,6 @@ function normalizar(t) {
     .replace(/[^a-z0-9]/g, "");
 }
 
-// =========================
-// LOGIN ADMIN
-// =========================
 app.post("/login", (req, res) => {
   if (req.body.password === PASSWORD_ADMIN) {
     return res.json({ ok: true });
@@ -65,9 +50,6 @@ app.post("/login", (req, res) => {
   res.status(401).json({ ok: false });
 });
 
-// =========================
-// DEBUG: VER ROL EXACTO (eliminar después de verificar)
-// =========================
 app.get("/debug/rol/:cedula", (req, res) => {
   db.query(
     `SELECT u.cedula, u.nombre, u.rol_id, r.id AS rid, r.nombre AS rol_nombre
@@ -82,81 +64,49 @@ app.get("/debug/rol/:cedula", (req, res) => {
   );
 });
 
-// =========================
-// EDIFICIOS
-// =========================
 app.get("/admin/edificios", (req, res) => {
   db.query("SELECT * FROM edificios", (err, data) => {
     if (err) return res.status(500).json(err);
-
-    // ORDENADOS
     data.sort((a, b) => a.nombre.localeCompare(b.nombre));
-
     res.json(data);
   });
 });
 
-app.get("/admin/dispositivos", validarAdmin, (req,res)=>{
-
-db.query(`
-SELECT 
-d.id,
-u.nombre,
-d.cedula,
-d.device_id,
-d.autorizado,
-e.nombre AS edificio
-FROM dispositivos d
-LEFT JOIN usuarios u ON d.cedula=u.cedula
-LEFT JOIN edificios e ON d.edificio_id=e.id
-ORDER BY d.id DESC
-`, (err,data)=>{
-
-if(err) return res.status(500).json(err);
-
-res.json(data);
-
+app.get("/admin/dispositivos", validarAdmin, (req, res) => {
+  db.query(`
+    SELECT 
+      d.id,
+      u.nombre,
+      d.cedula,
+      d.device_id,
+      d.autorizado,
+      e.nombre AS edificio
+    FROM dispositivos d
+    LEFT JOIN usuarios u ON d.cedula = u.cedula
+    LEFT JOIN edificios e ON d.edificio_id = e.id
+    ORDER BY d.id DESC
+  `, (err, data) => {
+    if (err) return res.status(500).json(err);
+    res.json(data);
+  });
 });
 
+app.post("/admin/aprobar-dispositivo", validarAdmin, (req, res) => {
+  db.query("UPDATE dispositivos SET autorizado=1 WHERE id=?", [req.body.id], (err) => {
+    if (err) return res.status(500).json(err);
+    res.json({ ok: true });
+  });
 });
 
-app.post("/admin/aprobar-dispositivo", validarAdmin, (req,res)=>{
-
-db.query(
-"UPDATE dispositivos SET autorizado=1 WHERE id=?",
-[req.body.id],
-(err)=>{
-
-if(err) return res.status(500).json(err);
-
-res.json({ok:true});
-
+app.post("/admin/bloquear-dispositivo", validarAdmin, (req, res) => {
+  db.query("UPDATE dispositivos SET autorizado=0 WHERE id=?", [req.body.id], (err) => {
+    if (err) return res.status(500).json(err);
+    res.json({ ok: true });
+  });
 });
 
-});
-
-app.post("/admin/bloquear-dispositivo", validarAdmin, (req,res)=>{
-
-db.query(
-"UPDATE dispositivos SET autorizado=0 WHERE id=?",
-[req.body.id],
-(err)=>{
-
-if(err) return res.status(500).json(err);
-
-res.json({ok:true});
-
-});
-
-});
-
-// =========================
-// AGREGAR DISPOSITIVO MANUAL
-// Soporta uno, varios o todos los edificios
-// =========================
 app.post("/admin/agregar-dispositivo", validarAdmin, (req, res) => {
   const { cedula, device_id, edificio_ids } = req.body;
-  // edificio_ids puede ser: "todos", un array [1,2,3] o un solo id
 
   const getEdificios = (cb) => {
     if (edificio_ids === "todos") {
@@ -171,21 +121,16 @@ app.post("/admin/agregar-dispositivo", validarAdmin, (req, res) => {
   };
 
   getEdificios((ids) => {
-
     if (ids.length === 0) return res.json({ ok: true });
 
-    // Para cada edificio: si ya existe fila para esta cédula → actualizar device y autorizar
-    // Si no existe → insertar nueva fila autorizada
     let pendientes = ids.length;
     let huboError = false;
 
     ids.forEach(edificio_id => {
-
       db.query(
         `SELECT id FROM dispositivos WHERE cedula=? AND edificio_id=? LIMIT 1`,
         [cedula, edificio_id],
         (err, rows) => {
-
           if (err) { if (!huboError) { huboError = true; res.status(500).json(err); } return; }
 
           const done = () => {
@@ -194,40 +139,31 @@ app.post("/admin/agregar-dispositivo", validarAdmin, (req, res) => {
           };
 
           if (rows.length > 0) {
-            // Ya existe: actualizar device_id y autorizar
             db.query(
               `UPDATE dispositivos SET device_id=?, autorizado=1 WHERE id=?`,
               [device_id || "", rows[0].id],
               (err) => { if (err && !huboError) { huboError = true; res.status(500).json(err); return; } done(); }
             );
           } else {
-            // No existe: insertar nuevo autorizado
             db.query(
               `INSERT INTO dispositivos (cedula, device_id, edificio_id, autorizado) VALUES (?,?,?,1)`,
               [cedula, device_id || "", edificio_id],
               (err) => { if (err && !huboError) { huboError = true; res.status(500).json(err); return; } done(); }
             );
           }
-
         }
       );
-
     });
-
   });
 });
 
 // =========================
-// REGISTROS + OBSERVACIÓN 12H (MEJORADO)
+// REGISTROS + ALERTA 12H (CORREGIDO)
+// Evalúa TODOS los registros de entrada, no solo uno
 // =========================
 app.get("/admin/registros", validarAdmin, (req, res) => {
 
-  let sql = `
-  SELECT *
-  FROM registros
-  WHERE 1=1
-  `;
-
+  let sql = `SELECT * FROM registros WHERE 1=1`;
   const params = [];
 
   if (req.query.edificio_id) {
@@ -240,82 +176,109 @@ app.get("/admin/registros", validarAdmin, (req, res) => {
     params.push(req.query.cedula);
   }
 
-  sql += " ORDER BY fecha_hora DESC";
+  sql += " ORDER BY fecha_hora ASC"; // ASC para procesar cronológicamente
 
   db.query(sql, params, (err, data) => {
-
-    if (err) {
-      return res.status(500).json(err);
-    }
+    if (err) return res.status(500).json(err);
 
     const ahora = new Date();
 
-    const procesado = data.map(r => {
+    // Construir mapa de entradas activas (sin salida posterior)
+    // clave: cedula + edificio_id → fecha de entrada más reciente sin salida
+    const entradasActivas = new Map();
 
-      let obs = "";
+    data.forEach(r => {
+      const clave = `${r.cedula}_${r.edificio_id}`;
 
-      // VALIDAR SOLO ENTRADAS
       if (r.tipo_registro === "Entrada") {
-
-        const entrada = new Date(r.fecha_hora);
-
-        const diffHoras =
-          (ahora - entrada) / (1000 * 60 * 60);
-
-        // BUSCAR SI HAY UNA SALIDA DESPUÉS
-        const tieneSalida = data.some(s => {
-
-          return (
-            s.cedula === r.cedula &&
-            s.edificio_id === r.edificio_id &&
-            s.tipo_registro === "Salida" &&
-            new Date(s.fecha_hora) > entrada
-          );
-
+        // Guardar esta entrada (puede haber varias, nos quedamos con la más reciente)
+        // Como están en orden ASC, cada nueva entrada sobreescribe la anterior
+        entradasActivas.set(clave, {
+          id: r.id,
+          fecha: new Date(r.fecha_hora)
         });
-
-        // ALERTA SOLO SI NO HAY SALIDA
-        if (diffHoras > 12 && !tieneSalida) {
-
-          obs = "🚨 Salida no registrada";
-
-        }
-
+      } else if (r.tipo_registro === "Salida") {
+        // Esta salida cierra la entrada activa para esta clave
+        entradasActivas.delete(clave);
       }
-
-      return {
-        ...r,
-        observacion: obs
-      };
-
     });
 
+    // IDs de entradas que están activas (sin salida) y llevan +12h
+    const idsEnAlerta = new Set();
+
+    entradasActivas.forEach((entrada) => {
+      const diffHoras = (ahora - entrada.fecha) / (1000 * 60 * 60);
+      if (diffHoras > 12) {
+        idsEnAlerta.add(entrada.id);
+      }
+    });
+
+    // Mapear los registros añadiendo observacion
+    // Devolver en orden DESC para que el admin vea lo más reciente primero
+    const procesado = data
+      .slice()
+      .reverse()
+      .map(r => {
+        const obs = idsEnAlerta.has(r.id) ? "🚨 Salida no registrada" : "";
+        return { ...r, observacion: obs };
+      });
+
     res.json(procesado);
-
   });
-
 });
 
 // =========================
-// AUTO OBSERVACIÓN EN BD (CRON)
+// CRON: PERSISTIR ALERTAS EN BD (CORREGIDO)
+// Marca TODAS las entradas sin salida con +12h,
+// no solo las que no tienen ningún registro posterior
 // =========================
 setInterval(() => {
 
-  const sql = `
-    UPDATE registros r1
-    LEFT JOIN registros r2 
-      ON r1.cedula = r2.cedula 
-      AND r1.edificio_id = r2.edificio_id
-      AND r2.id > r1.id
-      AND r2.tipo_registro = 'Salida'
-    SET r1.observacion = '🚨 Salida no registrada'
-    WHERE r1.tipo_registro = 'Entrada'
-      AND r2.id IS NULL
-      AND TIMESTAMPDIFF(HOUR, r1.fecha_hora, NOW()) > 12
-  `;
+  // Paso 1: obtener todas las entradas que llevan más de 12h
+  db.query(`
+    SELECT id, cedula, edificio_id, fecha_hora
+    FROM registros
+    WHERE tipo_registro = 'Entrada'
+      AND TIMESTAMPDIFF(HOUR, fecha_hora, NOW()) > 12
+  `, (err, entradas) => {
 
-  db.query(sql, (err) => {
-    if (err) console.log("Error auto obs:", err.message);
+    if (err) { console.log("Error cron step1:", err.message); return; }
+    if (entradas.length === 0) return;
+
+    // Paso 2: para cada entrada, verificar si tiene salida posterior
+    let pendientes = entradas.length;
+
+    entradas.forEach(entrada => {
+
+      db.query(`
+        SELECT id FROM registros
+        WHERE cedula = ?
+          AND edificio_id = ?
+          AND tipo_registro = 'Salida'
+          AND fecha_hora > ?
+        LIMIT 1
+      `, [entrada.cedula, entrada.edificio_id, entrada.fecha_hora],
+      (err, salidas) => {
+
+        pendientes--;
+
+        if (err) { console.log("Error cron step2:", err.message); return; }
+
+        // Solo marcar si NO tiene salida posterior
+        if (salidas.length === 0) {
+          db.query(
+            `UPDATE registros SET observacion = '🚨 Salida no registrada' WHERE id = ?`,
+            [entrada.id],
+            (err) => {
+              if (err) console.log("Error cron update:", err.message);
+            }
+          );
+        }
+
+      });
+
+    });
+
   });
 
 }, 10 * 60 * 1000);
@@ -333,9 +296,7 @@ app.post("/registro", (req, res) => {
     return res.status(400).json({ mensaje: "Datos incompletos ❌" });
   }
 
-  // PASO 1: buscar edificio por QR
   db.query("SELECT * FROM edificios", (err, eds) => {
-
     if (err) return res.status(500).json({ mensaje: "Error DB" });
 
     const edificio = eds.find(e => normalizar(e.codigo_qr) === codigoEdificio);
@@ -344,7 +305,6 @@ app.post("/registro", (req, res) => {
       return res.json({ mensaje: "QR inválido ❌" });
     }
 
-    // PASO 2: buscar usuario
     db.query(
       `SELECT u.id, u.nombre, IFNULL(r.nombre,'usuario') AS rol
        FROM usuarios u
@@ -352,7 +312,6 @@ app.post("/registro", (req, res) => {
        WHERE u.cedula=?`,
       [cedula],
       (err, users) => {
-
         if (err) return res.status(500).json({ mensaje: "Error usuario" });
 
         if (users.length === 0) {
@@ -361,12 +320,10 @@ app.post("/registro", (req, res) => {
 
         const user = users[0];
 
-        // PASO 3: verificar que este device no esté registrado a OTRA cédula
         db.query(
           `SELECT * FROM dispositivos WHERE device_id=? AND cedula<>?`,
           [deviceId, cedula],
           (err, usados) => {
-
             if (err) return res.status(500).json({ mensaje: "Error validando dispositivo" });
 
             if (usados.length > 0) {
@@ -375,24 +332,17 @@ app.post("/registro", (req, res) => {
               });
             }
 
-            // ================================================
-            // FLUJO ROL ADMINISTRACION
-            // ================================================
             if (user.rol === "Administración") {
 
-              // Buscar si ya tiene dispositivos registrados
               db.query(
                 `SELECT * FROM dispositivos WHERE cedula=?`,
                 [cedula],
                 (err, adminDevs) => {
-
                   if (err) return res.status(500).json({ mensaje: "Error dispositivos admin" });
 
                   if (adminDevs.length === 0) {
 
-                    // PRIMERA VEZ: capturar device_id y autorizar en TODOS los edificios
                     db.query("SELECT id FROM edificios", (err, todosEds) => {
-
                       if (err) return res.status(500).json({ mensaje: "Error edificios" });
 
                       const values = todosEds.map(e => [cedula, deviceId, e.id, 1]);
@@ -401,19 +351,14 @@ app.post("/registro", (req, res) => {
                         "INSERT INTO dispositivos (cedula, device_id, edificio_id, autorizado) VALUES ?",
                         [values],
                         (err) => {
-
                           if (err) return res.status(500).json({ mensaje: "Error registrando admin" });
-
                           registrarMovimiento(user, edificio, cedula, res);
-
                         }
                       );
-
                     });
 
                   } else {
 
-                    // YA REGISTRADO: verificar que el device coincida
                     const essuyo = adminDevs.some(d => d.device_id === deviceId);
 
                     if (!essuyo) {
@@ -423,26 +368,17 @@ app.post("/registro", (req, res) => {
                     }
 
                     registrarMovimiento(user, edificio, cedula, res);
-
                   }
-
                 }
               );
 
-              return; // no continuar al flujo normal
-
+              return;
             }
 
-            // ================================================
-            // FLUJO ROLES 2, 3, 4
-            // ================================================
-
-            // Verificar que esta cédula no tenga OTRO device distinto
             db.query(
               `SELECT * FROM dispositivos WHERE cedula=? AND device_id<>?`,
               [cedula, deviceId],
               (err, otrosDevices) => {
-
                 if (err) return res.status(500).json({ mensaje: "Error validando cédula" });
 
                 if (otrosDevices.length > 0) {
@@ -451,7 +387,6 @@ app.post("/registro", (req, res) => {
                   });
                 }
 
-                // Buscar dispositivo: primero por device exacto, luego por placeholder ""
                 db.query(
                   `SELECT * FROM dispositivos
                    WHERE cedula=? AND edificio_id=?
@@ -460,22 +395,17 @@ app.post("/registro", (req, res) => {
                    LIMIT 1`,
                   [cedula, edificio.id, deviceId, deviceId],
                   (err, devs) => {
-
                     if (err) return res.status(500).json({ mensaje: "Error dispositivos" });
 
                     if (devs.length === 0) {
-
-                      // No existe nada: insertar pendiente con device real
                       db.query(
                         `INSERT INTO dispositivos (cedula, device_id, edificio_id, autorizado)
                          VALUES (?, ?, ?, 0)`,
                         [cedula, deviceId, edificio.id]
                       );
-
                       return res.status(403).json({
                         mensaje: "⏳ Dispositivo pendiente de aprobación"
                       });
-
                     }
 
                     const dispositivo = devs[0];
@@ -486,7 +416,6 @@ app.post("/registro", (req, res) => {
                       });
                     }
 
-                    // Si llegó con placeholder "", actualizar con el device real
                     if (dispositivo.device_id === "" || dispositivo.device_id === null) {
                       db.query(
                         `UPDATE dispositivos SET device_id=? WHERE id=?`,
@@ -497,25 +426,19 @@ app.post("/registro", (req, res) => {
                         }
                       );
                     } else {
-                      // Device ya registrado y autorizado
                       registrarMovimiento(user, edificio, cedula, res);
                     }
-
                   }
                 );
-
               }
             );
-
           }
         );
-
       }
     );
-
   });
-
 });
+
 // =========================
 // HELPER: REGISTRAR ENTRADA O SALIDA
 // =========================
@@ -527,24 +450,18 @@ function registrarMovimiento(user, edificio, cedula, res) {
      ORDER BY fecha_hora DESC LIMIT 1`,
     [cedula, edificio.id],
     (err, last) => {
-
       if (err) return res.status(500).json({ mensaje: "Error consultando registros" });
 
       const ahora = new Date();
 
       if (last && last.length > 0) {
-
         const ultimo = last[0];
         const fechaUltimo = new Date(ultimo.fecha_hora);
         const diffMin = (ahora - fechaUltimo) / (1000 * 60);
         const tipoUltimo = ultimo.tipo_registro;
 
-        // Bloquear si no ha pasado 1 hora desde el último registro
         if (diffMin < 60) {
-
           const minRestantes = Math.ceil(60 - diffMin);
-
-          // Mensaje específico según el tipo del último registro
           let msg = "";
 
           if (tipoUltimo === "Entrada") {
@@ -554,12 +471,9 @@ function registrarMovimiento(user, edificio, cedula, res) {
           }
 
           return res.status(429).json({ mensaje: msg });
-
         }
-
       }
 
-      // Han pasado más de 60 min o es el primer registro
       const tipo = (last && last.length > 0 && last[0].tipo_registro === "Entrada")
         ? "Salida"
         : "Entrada";
@@ -576,10 +490,8 @@ function registrarMovimiento(user, edificio, cedula, res) {
           });
         }
       );
-
     }
   );
-
 }
 
 // =========================
@@ -639,61 +551,51 @@ app.post("/admin/quitar-permiso", validarAdmin, (req, res) => {
   );
 });
 
+// =========================
+// EXPORTAR EXCEL
+// =========================
 app.get("/admin/exportar-excel", validarAdmin, (req, res) => {
 
-let sql = "SELECT * FROM registros WHERE 1=1";
-const params = [];
+  let sql = "SELECT * FROM registros WHERE 1=1";
+  const params = [];
 
-if(req.query.edificio_id){
-sql += " AND edificio_id=?";
-params.push(req.query.edificio_id);
-}
+  if (req.query.edificio_id) {
+    sql += " AND edificio_id=?";
+    params.push(req.query.edificio_id);
+  }
 
-if(req.query.cedula){
-sql += " AND cedula=?";
-params.push(req.query.cedula);
-}
+  if (req.query.cedula) {
+    sql += " AND cedula=?";
+    params.push(req.query.cedula);
+  }
 
-sql += " ORDER BY fecha_hora DESC";
+  sql += " ORDER BY fecha_hora DESC";
 
-db.query(sql, params, async (err, rows) => {
+  db.query(sql, params, async (err, rows) => {
+    if (err) return res.status(500).json(err);
 
-if(err) return res.status(500).json(err);
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("Registros");
 
-const workbook = new ExcelJS.Workbook();
+    sheet.columns = [
+      { header: "ID", key: "id", width: 10 },
+      { header: "Nombre", key: "nombre", width: 30 },
+      { header: "Cédula", key: "cedula", width: 20 },
+      { header: "Edificio", key: "edificio", width: 25 },
+      { header: "Rol", key: "rol", width: 15 },
+      { header: "Tipo", key: "tipo_registro", width: 15 },
+      { header: "Fecha", key: "fecha_hora", width: 25 },
+      { header: "Observación", key: "observacion", width: 30 }
+    ];
 
-const sheet = workbook.addWorksheet("Registros");
+    rows.forEach(r => { sheet.addRow(r); });
 
-sheet.columns = [
-{ header:"ID", key:"id", width:10 },
-{ header:"Nombre", key:"nombre", width:30 },
-{ header:"Cédula", key:"cedula", width:20 },
-{ header:"Edificio", key:"edificio", width:25 },
-{ header:"Rol", key:"rol", width:15 },
-{ header:"Tipo", key:"tipo_registro", width:15 },
-{ header:"Fecha", key:"fecha_hora", width:25 }
-];
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", "attachment; filename=registros.xlsx");
 
-rows.forEach(r=>{
-sheet.addRow(r);
-});
-
-res.setHeader(
-"Content-Type",
-"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-);
-
-res.setHeader(
-"Content-Disposition",
-"attachment; filename=registros.xlsx"
-);
-
-await workbook.xlsx.write(res);
-
-res.end();
-
-});
-
+    await workbook.xlsx.write(res);
+    res.end();
+  });
 });
 
 // =========================
