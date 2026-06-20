@@ -4,6 +4,25 @@ Sistema de control de acceso por código QR para personal de aseo.
 
 ---
 
+## Cambios v2.1 (este parche)
+
+### 🔴 Crítico — bug de base de datos
+- **Fix `/admin/registros` no mostraba nada**: `pool.execute()` con `LIMIT ? OFFSET ?` parametrizado falla en `mysql2` con el error `Argumentos incorrectos para mysqld_stmt_execute`. Se cambió esa consulta puntual a `pool.query()` con `limit`/`offset` interpolados de forma segura (ya validados como enteros con `parseInt`/`Math.min`). Esto afectaba tanto el listado de registros como el perfil de empleado en el panel admin.
+
+### 🟠 Seguridad — flujo de registro QR
+- **QR vence a los 60 segundos**: si la persona no completa el registro en ese tiempo tras escanear, debe volver a escanear el código (`index.html`).
+- **Orden de verificación reforzado**: primero se valida que el `device_id` esté correctamente anclado a la cédula (anti-suplantación); solo después se verifica si esa cédula tiene autorización en el edificio específico del QR escaneado.
+- **Mensaje correcto de "no autorizado"**: si una cédula con celular ya verificado intenta ingresar a un edificio donde no tiene permiso, ahora se le responde "No estás autorizado para ingresar a este edificio" en vez de crear silenciosamente un registro "pendiente de aprobación". El flujo de "pendiente de aprobación" se conserva solo para la primera vez que una cédula usa el sistema (anclaje inicial del celular).
+
+### 🟡 Panel admin — dispositivos de Administradores
+- Cuando una cédula con rol **Administración** tiene dispositivo autorizado en todos los edificios, el panel ahora la muestra como **una sola fila** ("Todos los edificios") en vez de una fila repetida por cada edificio. Aprobar/bloquear esa fila aplica la acción a todos los registros agrupados internamente.
+
+### 🟢 Interfaz `index.html`
+- Se eliminó el teclado numérico personalizado; la cédula se ingresa con un campo de texto nativo (`type="tel" inputmode="numeric"`), que usa el teclado propio del teléfono.
+- Se eliminó el bloque de "Últimos registros" (historial local de los últimos 3 registros).
+
+---
+
 ## Cambios v2.0 (mejoras aplicadas)
 
 ### 🔴 Críticos (seguridad)

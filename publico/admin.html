@@ -1001,10 +1001,11 @@ async function cargarDispositivos() {
   const r  = await fetch("/admin/dispositivos", {headers:{Authorization:PASS}});
   const ds = await r.json();
   document.getElementById("tablaDevices").innerHTML = ds.map(d => {
+    const idsParam = JSON.stringify(d._ids_agrupados || [d.id]);
     const badge = d.autorizado==1 ? `<span class="badge badge-ok">✅ Autorizado</span>` : `<span class="badge badge-pend">⏳ Pendiente</span>`;
     const btn   = d.autorizado==1
-      ? `<button class="btn btn-danger"  style="padding:5px 10px;font-size:12px" onclick="bloquearDev(${d.id})">Bloquear</button>`
-      : `<button class="btn btn-primary" style="padding:5px 10px;font-size:12px" onclick="aprobarDev(${d.id})">Aprobar</button>`;
+      ? `<button class="btn btn-danger"  style="padding:5px 10px;font-size:12px" onclick='bloquearDev(${idsParam})'>Bloquear</button>`
+      : `<button class="btn btn-primary" style="padding:5px 10px;font-size:12px" onclick='aprobarDev(${idsParam})'>Aprobar</button>`;
     return `<tr>
       <td style="color:var(--gris-400);font-size:12px">#${d.id}</td>
       <td style="font-weight:600">${d.nombre||"—"}</td>
@@ -1016,13 +1017,13 @@ async function cargarDispositivos() {
   }).join("") || `<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--gris-400)">Sin dispositivos</td></tr>`;
 }
 
-async function aprobarDev(id) {
-  await fetch("/admin/aprobar-dispositivo",{method:"POST",headers:{"Content-Type":"application/json",Authorization:PASS},body:JSON.stringify({id})});
+async function aprobarDev(ids) {
+  await fetch("/admin/aprobar-dispositivo",{method:"POST",headers:{"Content-Type":"application/json",Authorization:PASS},body:JSON.stringify({ids})});
   toast("✅ Dispositivo aprobado"); cargarDispositivos();
 }
-async function bloquearDev(id) {
+async function bloquearDev(ids) {
   if (!confirm("¿Bloquear este dispositivo?")) return;
-  await fetch("/admin/bloquear-dispositivo",{method:"POST",headers:{"Content-Type":"application/json",Authorization:PASS},body:JSON.stringify({id})});
+  await fetch("/admin/bloquear-dispositivo",{method:"POST",headers:{"Content-Type":"application/json",Authorization:PASS},body:JSON.stringify({ids})});
   toast("🚫 Dispositivo bloqueado"); cargarDispositivos();
 }
 async function agregarDispManual() {

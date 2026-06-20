@@ -140,24 +140,62 @@ app.post("/admin/editar-usuario", validarAdmin, asyncHandler(async (req, res) =>
 app.get("/admin/dispositivos", validarAdmin, asyncHandler(async (req, res) => {
   const [rows] = await pool.execute(`
     SELECT d.id, u.nombre, d.cedula, d.device_id, d.autorizado,
-           e.nombre AS edificio
+           e.nombre AS edificio, e.id AS edificio_id,
+           IFNULL(r.nombre,'usuario') AS rol
     FROM dispositivos d
-    LEFT JOIN usuarios u  ON d.cedula    = u.cedula
+    LEFT JOIN usuarios u  ON d.cedula      = u.cedula
     LEFT JOIN edificios e ON d.edificio_id = e.id
+    LEFT JOIN roles r     ON u.rol_id      = r.id
     ORDER BY d.id DESC
   `);
-  res.json(rows);
+
+  const [totalEdificios] = await pool.execute("SELECT COUNT(*) AS n FROM edificios");
+  const numEdificios = totalEdificios[0]?.n || 0;
+
+  // MEJORA: si una cédula de rol Administración tiene fila en TODOS los
+  // edificios, se colapsan en una sola fila virtual "Todos los edificios"
+  // para no saturar el panel con un registro por edificio.
+  const porCedula = new Map();
+  rows.forEach(d => {
+    if (!porCedula.has(d.cedula)) porCedula.set(d.cedula, []);
+    porCedula.get(d.cedula).push(d);
+  });
+
+  const resultado = [];
+  porCedula.forEach(filas => {
+    const esAdmin = filas[0]?.rol === "Administración";
+    if (esAdmin && numEdificios > 0 && filas.length >= numEdificios) {
+      const base = filas[0];
+      resultado.push({
+        id          : base.id,
+        nombre      : base.nombre,
+        cedula      : base.cedula,
+        device_id   : base.device_id,
+        autorizado  : filas.every(f => f.autorizado == 1) ? 1 : 0,
+        edificio    : "Todos los edificios",
+        rol         : base.rol,
+        _ids_agrupados: filas.map(f => f.id),
+      });
+    } else {
+      resultado.push(...filas);
+    }
+  });
+
+  resultado.sort((a, b) => b.id - a.id);
+  res.json(resultado);
 }));
 
 app.post("/admin/aprobar-dispositivo", validarAdmin, asyncHandler(async (req, res) => {
-  await pool.execute("UPDATE dispositivos SET autorizado=1 WHERE id=?", [req.body.id]);
-  await auditLog("aprobar_dispositivo", { id: req.body.id });
+  const ids = Array.isArray(req.body.ids) ? req.body.ids : [req.body.id];
+  await pool.query("UPDATE dispositivos SET autorizado=1 WHERE id IN (?)", [ids]);
+  await auditLog("aprobar_dispositivo", { ids });
   res.json({ ok: true });
 }));
 
 app.post("/admin/bloquear-dispositivo", validarAdmin, asyncHandler(async (req, res) => {
-  await pool.execute("UPDATE dispositivos SET autorizado=0 WHERE id=?", [req.body.id]);
-  await auditLog("bloquear_dispositivo", { id: req.body.id });
+  const ids = Array.isArray(req.body.ids) ? req.body.ids : [req.body.id];
+  await pool.query("UPDATE dispositivos SET autorizado=0 WHERE id IN (?)", [ids]);
+  await auditLog("bloquear_dispositivo", { ids });
   res.json({ ok: true });
 }));
 
@@ -268,9 +306,12 @@ app.get("/admin/registros", validarAdmin, asyncHandler(async (req, res) => {
   });
 
   // Ahora traer la página con todos los campos
-  const [pagina] = await pool.execute(
-    `SELECT * FROM registros WHERE ${where} ORDER BY fecha_hora DESC LIMIT ? OFFSET ?`,
-    [...params, limit, offset]
+  // NOTA: LIMIT/OFFSET con pool.execute (prepared statement binario) puede fallar
+  // en mysql2 ("Argumentos incorrectos para mysqld_stmt_execute"); se usa pool.query
+  // para esta consulta puntual, con limit/offset ya validados como enteros arriba.
+  const [pagina] = await pool.query(
+    `SELECT * FROM registros WHERE ${where} ORDER BY fecha_hora DESC LIMIT ${limit} OFFSET ${offset}`,
+    params
   );
 
   // Contar total para paginación en cliente
@@ -341,7 +382,7 @@ app.post("/registro", asyncHandler(async (req, res) => {
     return registrarMovimiento(user, edificio, cedula, res);
   }
 
-  // 5. Cédula en otro dispositivo
+  // 5. Cédula en otro dispositivo (protección anti-suplantación)
   const [otrosDevs] = await pool.execute(
     "SELECT id FROM dispositivos WHERE cedula=? AND device_id<>?",
     [cedula, deviceId]
@@ -350,7 +391,16 @@ app.post("/registro", asyncHandler(async (req, res) => {
     return res.status(403).json({ mensaje: "🚫 Esta cédula ya está asociada a otro celular" });
   }
 
-  // 6. Buscar permiso para este edificio
+  // 6. ¿Esta cédula ya tiene algún dispositivo anclado/conocido en el sistema?
+  //    (sin importar el edificio). Si sí, el celular ya quedó verificado como
+  //    suyo y lo que falta es solo comprobar autorización para ESTE edificio.
+  const [algunDispositivo] = await pool.execute(
+    "SELECT id FROM dispositivos WHERE cedula=? LIMIT 1",
+    [cedula]
+  );
+  const cedulaYaAnclada = algunDispositivo.length > 0;
+
+  // 7. Buscar permiso para este edificio en particular
   const [devs] = await pool.execute(
     `SELECT * FROM dispositivos
      WHERE cedula=? AND edificio_id=?
@@ -360,6 +410,13 @@ app.post("/registro", asyncHandler(async (req, res) => {
   );
 
   if (devs.length === 0) {
+    if (cedulaYaAnclada) {
+      // El celular ya está verificado como de esta cédula, pero no tiene
+      // permiso para este edificio específico: acceso denegado directo.
+      return res.status(403).json({ mensaje: "🚫 No estás autorizado para ingresar a este edificio" });
+    }
+    // Primera vez que esta cédula usa el sistema: se ancla el dispositivo
+    // como pendiente de aprobación por un administrador.
     await pool.execute(
       "INSERT INTO dispositivos (cedula, device_id, edificio_id, autorizado) VALUES (?,?,?,0)",
       [cedula, deviceId, edificio.id]

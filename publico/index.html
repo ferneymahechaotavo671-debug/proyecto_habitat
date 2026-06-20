@@ -158,12 +158,12 @@ body::before {
 .estado.error   { background: #fff0f0; color: var(--rojo); }
 .estado.warning { background: #fff8ec; color: var(--naranja); }
 
-/* ── MEJORA 4: Teclado numérico custom ── */
+/* ── Input de cédula (nativo) ── */
 .cedula-display {
   background: var(--gris-100);
   border: 1.5px solid var(--gris-300);
   border-radius: var(--radio-sm);
-  padding: 14px 16px;
+  padding: 4px 16px;
   margin-bottom: 12px;
   min-height: 52px;
   display: flex;
@@ -171,50 +171,34 @@ body::before {
   gap: 10px;
   transition: var(--trans);
 }
-.cedula-display.focus { border-color: var(--verde-vivo); box-shadow: 0 0 0 3px rgba(29,184,104,.15); }
+.cedula-display:focus-within { border-color: var(--verde-vivo); box-shadow: 0 0 0 3px rgba(29,184,104,.15); }
 .cedula-display svg { flex-shrink:0; color: var(--gris-300); }
-.cedula-valor {
+.cedula-input {
   flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
   font-size: 20px;
   font-weight: 700;
   color: var(--verde-oscuro);
-  letter-spacing: 3px;
+  letter-spacing: 2px;
   font-variant-numeric: tabular-nums;
+  font-family: inherit;
 }
-.cedula-placeholder { flex:1; font-size:14px; color: var(--gris-300); }
+.cedula-input::placeholder { font-size: 14px; font-weight: 400; color: var(--gris-300); letter-spacing: normal; }
 
-.teclado {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  margin-bottom: 14px;
-}
-.key {
-  background: var(--gris-100);
-  border: 1.5px solid var(--gris-300);
-  border-radius: var(--radio-sm);
-  padding: 14px 8px;
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--verde-oscuro);
-  cursor: pointer;
-  transition: var(--trans);
-  text-align: center;
-  user-select: none;
-  -webkit-tap-highlight-color: transparent;
-}
-.key:active { background: var(--verde-claro); border-color: var(--verde-vivo); transform: scale(.94); }
-.key.borrar { font-size: 18px; color: var(--rojo); background: #fff0f0; border-color: #fca5a5; }
-.key.borrar:active { background: #fee2e2; }
-.key.cero   { grid-column: 2; }
 .key.confirmar {
-  grid-column: 1 / -1;
+  width: 100%;
   background: linear-gradient(135deg, var(--verde-medio), var(--verde-vivo));
   color: var(--blanco);
   border: none;
+  border-radius: var(--radio-sm);
   box-shadow: 0 4px 14px rgba(29,184,104,.35);
   padding: 16px;
   font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--trans);
 }
 .key.confirmar:active { transform: scale(.97); }
 .key.confirmar:disabled {
@@ -261,33 +245,6 @@ body::before {
   background: transparent; border: 1.5px solid var(--verde-vivo);
   color: var(--verde-vivo); margin-top: 8px; display: none;
 }
-
-/* ── MEJORA 5: Historial ── */
-.historial-titulo {
-  font-size: 11px; font-weight: 700; color: var(--gris-600);
-  text-transform: uppercase; letter-spacing: .5px;
-  margin-bottom: 8px; display: flex; align-items: center; gap: 6px;
-}
-.historial-titulo::after { content:""; flex:1; height:1px; background:var(--gris-300); }
-.historial-lista { display: flex; flex-direction: column; gap: 6px; }
-.historial-item {
-  display: flex; align-items: center; gap: 10px;
-  padding: 9px 12px;
-  background: var(--gris-100);
-  border-radius: var(--radio-sm);
-  font-size: 12px;
-}
-.historial-dot {
-  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
-}
-.historial-dot.entrada { background: var(--verde-vivo); }
-.historial-dot.salida  { background: var(--naranja); }
-.historial-nombre { font-weight: 600; color: var(--verde-oscuro); flex:1; }
-.historial-hora   { color: var(--gris-600); font-variant-numeric: tabular-nums; }
-.historial-tipo   { font-weight: 700; font-size: 11px; }
-.historial-tipo.entrada { color: #145a30; }
-.historial-tipo.salida  { color: var(--naranja); }
-.historial-vacio  { text-align:center; color: var(--gris-300); font-size:12px; padding: 10px 0; }
 
 /* ── MEJORA 1: Overlay de confirmación animado ── */
 .confirm-overlay {
@@ -391,34 +348,27 @@ body::before {
     <!-- Estado -->
     <div class="estado idle" id="estado">Ingresa tu cédula para registrarte</div>
 
-    <!-- MEJORA 4: Display de cédula -->
+    <!-- Input nativo de cédula -->
     <div class="cedula-display" id="cedulaDisplay">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
         <circle cx="12" cy="7" r="4"/>
       </svg>
-      <span class="cedula-placeholder" id="cedulaPlaceholder">Ej. 1234567890</span>
-      <span class="cedula-valor" id="cedulaValor" style="display:none"></span>
+      <input
+        class="cedula-input"
+        id="cedulaInput"
+        type="tel"
+        inputmode="numeric"
+        pattern="[0-9]*"
+        autocomplete="off"
+        maxlength="12"
+        placeholder="Ej. 1234567890"
+      >
     </div>
 
-    <!-- Teclado numérico -->
-    <div class="teclado" id="teclado">
-      <button class="key" onclick="tecla('1')">1</button>
-      <button class="key" onclick="tecla('2')">2</button>
-      <button class="key" onclick="tecla('3')">3</button>
-      <button class="key" onclick="tecla('4')">4</button>
-      <button class="key" onclick="tecla('5')">5</button>
-      <button class="key" onclick="tecla('6')">6</button>
-      <button class="key" onclick="tecla('7')">7</button>
-      <button class="key" onclick="tecla('8')">8</button>
-      <button class="key" onclick="tecla('9')">9</button>
-      <button class="key borrar" onclick="borrar()">⌫</button>
-      <button class="key cero" onclick="tecla('0')">0</button>
-      <button class="key" onclick="limpiar()" style="font-size:13px; color:var(--gris-600);">C</button>
-      <button class="key confirmar" id="btnConfirmar" onclick="registrar()">
-        ✔ &nbsp; Registrar entrada / salida
-      </button>
-    </div>
+    <button class="key confirmar" id="btnConfirmar" onclick="registrar()" style="margin-bottom:14px">
+      ✔ &nbsp; Registrar entrada / salida
+    </button>
 
     <!-- Timer -->
     <div class="timer-bar-wrap" id="timerWrap">
@@ -436,14 +386,6 @@ body::before {
     </button>
 
     <div id="reader"></div>
-
-    <!-- MEJORA 5: Historial -->
-    <div style="margin-top:18px;">
-      <div class="historial-titulo">Últimos registros</div>
-      <div class="historial-lista" id="historialLista">
-        <div class="historial-vacio">Sin registros aún</div>
-      </div>
-    </div>
 
   </div><!-- /card -->
 
@@ -482,6 +424,9 @@ actualizarReloj();
 setInterval(actualizarReloj, 1000);
 
 // ── Edificio ─────────────────────────────────────
+let qrExpiroTimer = null;
+const QR_VALIDEZ_SEG = 60;
+
 async function cargarEdificio() {
   if (!codigo) { setEdificio("Sin edificio", "Escanea un QR primero", false); return; }
   try {
@@ -491,12 +436,38 @@ async function cargarEdificio() {
     if (ed) {
       nombreEdificio = ed.nombre;
       setEdificio(ed.nombre, "Edificio verificado ✔", true);
-      cargarHistorial();
+      habilitarFormulario(true);
+      iniciarExpiracionQR();
     } else {
       setEdificio("QR no reconocido", "Código inválido", false);
       setEstado("Este QR no pertenece a ningún edificio.", "error");
+      habilitarFormulario(false);
     }
   } catch { setEdificio("Sin conexión", "Reintentando...", false); }
+}
+
+// ── MEJORA SEGURIDAD: el QR vence a los 60s. Si la persona no completa
+// el registro en ese tiempo, debe volver a escanear el código. ─────────
+function iniciarExpiracionQR() {
+  clearTimeout(qrExpiroTimer);
+  qrExpiroTimer = setTimeout(() => {
+    codigo = "";
+    nombreEdificio = "";
+    setEdificio("QR expirado", "Vuelve a escanear el código", false);
+    setEstado("⏳ El código QR expiró. Escanea de nuevo para registrarte.", "warning");
+    habilitarFormulario(false);
+  }, QR_VALIDEZ_SEG * 1000);
+}
+
+function habilitarFormulario(activo) {
+  const input = document.getElementById("cedulaInput");
+  const btn   = document.getElementById("btnConfirmar");
+  input.disabled = !activo;
+  if (!activo) {
+    btn.disabled = true;
+  } else {
+    btn.disabled = (input.value.trim().length < 5);
+  }
 }
 
 function setEdificio(nombre, sub, valido) {
@@ -512,102 +483,36 @@ function setEstado(msg, tipo = "idle") {
   el.className   = "estado " + tipo;
 }
 
-// ── MEJORA 4: Teclado custom ─────────────────────
-let cedulaStr = "";
-
-function actualizarDisplay() {
-  const display  = document.getElementById("cedulaDisplay");
-  const ph       = document.getElementById("cedulaPlaceholder");
-  const val      = document.getElementById("cedulaValor");
-  const btn      = document.getElementById("btnConfirmar");
-
-  if (cedulaStr.length > 0) {
-    ph.style.display  = "none";
-    val.style.display = "block";
-    // mostrar con puntos cada 3 dígitos para legibilidad
-    val.textContent   = cedulaStr.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-    display.classList.add("focus");
-    btn.disabled = (cedulaStr.length < 5);
-  } else {
-    ph.style.display  = "block";
-    val.style.display = "none";
-    display.classList.remove("focus");
-    btn.disabled = true;
+// ── Input nativo de cédula ────────────────────────
+const cedulaInputEl = document.getElementById("cedulaInput");
+cedulaInputEl.addEventListener("input", () => {
+  cedulaInputEl.value = cedulaInputEl.value.replace(/\D/g, "").slice(0, 12);
+  const btn = document.getElementById("btnConfirmar");
+  if (!cedulaInputEl.disabled) {
+    btn.disabled = (cedulaInputEl.value.trim().length < 5);
   }
-}
+  actualizarProximoTipo();
+});
+cedulaInputEl.addEventListener("keydown", e => { if (e.key === "Enter") registrar(); });
 
-function tecla(d) {
-  if (cedulaStr.length >= 12) return;
-  cedulaStr += d;
-  actualizarDisplay();
-}
-function borrar() {
-  cedulaStr = cedulaStr.slice(0, -1);
-  actualizarDisplay();
-}
 function limpiar() {
-  cedulaStr = "";
-  actualizarDisplay();
+  cedulaInputEl.value = "";
+  document.getElementById("btnConfirmar").disabled = true;
 }
-
-// ── MEJORA 2: Chip próximo tipo ───────────────────
-async function actualizarProximoTipo() {
-  if (!cedulaStr || cedulaStr.length < 5) {
+// ── Próximo tipo (chip informativo, lo confirma el servidor) ─────
+function actualizarProximoTipo() {
+  const valor = cedulaInputEl.value.trim();
+  if (!valor || valor.length < 5) {
     setChip("desconocido", "⏳ Ingresa tu cédula");
     return;
   }
-  // Consultar último registro del device
-  const historial = cargarHistorialLocal();
-  if (historial.length > 0) {
-    const ultimo = historial[0];
-    const tipo   = ultimo.tipo === "Entrada" ? "Salida" : "Entrada";
-    setChip(tipo.toLowerCase(), tipo === "Entrada" ? "↓ Será Entrada" : "↑ Será Salida");
-  } else {
-    setChip("entrada", "↓ Será Entrada");
-  }
+  setChip("desconocido", "✔ Listo para registrar");
 }
 
 function setChip(tipo, texto) {
   const chip = document.getElementById("proximoChip");
   chip.textContent = texto;
   chip.className   = "tipo-chip " + tipo;
-}
-
-// ── MEJORA 5: Historial (localStorage + servidor) ─
-function cargarHistorialLocal() {
-  try { return JSON.parse(localStorage.getItem("historial_" + codigo) || "[]"); }
-  catch { return []; }
-}
-function guardarHistorialLocal(item) {
-  let h = cargarHistorialLocal();
-  h.unshift(item);
-  h = h.slice(0, 3); // solo 3
-  localStorage.setItem("historial_" + codigo, JSON.stringify(h));
-}
-
-async function cargarHistorial() {
-  const lista = document.getElementById("historialLista");
-  const local = cargarHistorialLocal();
-  renderHistorial(local);
-}
-
-function renderHistorial(items) {
-  const lista = document.getElementById("historialLista");
-  if (!items.length) {
-    lista.innerHTML = `<div class="historial-vacio">Sin registros en este dispositivo</div>`;
-    return;
-  }
-  lista.innerHTML = items.map(r => {
-    const esEnt = r.tipo === "Entrada";
-    const hora  = new Date(r.fecha).toLocaleTimeString("es-CO",{hour:"2-digit",minute:"2-digit"});
-    const fecha = new Date(r.fecha).toLocaleDateString("es-CO",{day:"2-digit",month:"short"});
-    return `<div class="historial-item">
-      <div class="historial-dot ${esEnt ? 'entrada' : 'salida'}"></div>
-      <span class="historial-nombre">${r.nombre || r.cedula}</span>
-      <span class="historial-tipo ${esEnt ? 'entrada' : 'salida'}">${r.tipo}</span>
-      <span class="historial-hora">${hora} · ${fecha}</span>
-    </div>`;
-  }).join("");
 }
 
 // ── Bloqueo persistente ───────────────────────────
@@ -625,15 +530,14 @@ function arrancarTimer() {
   const wrap      = document.getElementById("timerWrap");
   const label     = document.getElementById("timerLabel");
   const bar       = document.getElementById("timerBar");
-  const teclado   = document.getElementById("teclado");
+  const input     = document.getElementById("cedulaInput");
 
   const tick = () => {
     const r = tiempoRestanteSeg();
     if (r <= 0) {
-      btn.disabled = cedulaStr.length < 5;
+      btn.disabled = input.value.trim().length < 5;
       btn.textContent = "✔  Registrar entrada / salida";
-      teclado.style.opacity    = "1";
-      teclado.style.pointerEvents = "auto";
+      input.disabled = false;
       wrap.style.display = "none";
       bar.style.width    = "0%";
       return;
@@ -642,8 +546,7 @@ function arrancarTimer() {
     const seg = r % 60;
     btn.disabled    = true;
     btn.textContent = `⏳ Disponible en ${min}:${seg.toString().padStart(2,"0")}`;
-    teclado.style.opacity    = ".5";
-    teclado.style.pointerEvents = "none";
+    input.disabled = true;
     wrap.style.display = "block";
     label.textContent  = `Próximo registro en ${min}:${seg.toString().padStart(2,"0")}`;
     bar.style.width    = (r / BLOQUEO_SEG * 100) + "%";
@@ -662,7 +565,7 @@ function mostrarConfirmacion(data) {
   const avatar  = document.getElementById("confirmAvatar");
 
   // MEJORA 6: Avatar con inicial
-  const nombre  = data.nombre || cedulaStr;
+  const nombre  = data.nombre || cedulaInputEl.value.trim();
   const inicial = nombre.charAt(0).toUpperCase();
   avatar.textContent = inicial;
   avatar.className   = "confirm-avatar " + (esEnt ? "entrada" : "salida");
@@ -687,7 +590,8 @@ function mostrarConfirmacion(data) {
 
 // ── Registro ──────────────────────────────────────
 async function registrar() {
-  if (tiempoRestanteSeg() > 0 || cedulaStr.length < 5) return;
+  const cedulaVal = cedulaInputEl.value.trim();
+  if (tiempoRestanteSeg() > 0 || cedulaVal.length < 5) return;
 
   const btn = document.getElementById("btnConfirmar");
   btn.disabled    = true;
@@ -697,26 +601,18 @@ async function registrar() {
     const r    = await fetch("/registro", {
       method : "POST",
       headers: { "Content-Type": "application/json" },
-      body   : JSON.stringify({ cedula: cedulaStr, codigoEdificio: codigo, deviceId: getDeviceId() }),
+      body   : JSON.stringify({ cedula: cedulaVal, codigoEdificio: codigo, deviceId: getDeviceId() }),
     });
     const data = await r.json();
 
     if (r.ok) {
-      // Guardar en historial local
-      guardarHistorialLocal({
-        cedula : cedulaStr,
-        nombre : data.nombre || cedulaStr,
-        tipo   : data.tipo,
-        fecha  : new Date().toISOString(),
-      });
-      renderHistorial(cargarHistorialLocal());
-
       // Animación de confirmación
       mostrarConfirmacion(data);
       setEstado(data.mensaje, "ok");
       iniciarBloqueo();
       limpiar();
       actualizarProximoTipo();
+      iniciarExpiracionQR(); // se vuelve a contar 60s para el siguiente registro
 
     } else if (r.status === 429) {
       setEstado(data.mensaje, "warning");
@@ -725,13 +621,13 @@ async function registrar() {
       setTimeout(() => setEstado("Ingresa tu cédula para registrarte", "idle"), 6000);
     } else {
       setEstado(data.mensaje, "error");
-      btn.disabled    = (cedulaStr.length < 5);
+      btn.disabled    = (cedulaInputEl.value.trim().length < 5);
       btn.textContent = "✔  Registrar entrada / salida";
       setTimeout(() => setEstado("Ingresa tu cédula para registrarte", "idle"), 5000);
     }
   } catch {
     setEstado("Sin conexión. Intenta de nuevo.", "error");
-    btn.disabled    = (cedulaStr.length < 5);
+    btn.disabled    = (cedulaInputEl.value.trim().length < 5);
     btn.textContent = "✔  Registrar entrada / salida";
   }
 }
@@ -785,7 +681,7 @@ if ("serviceWorker" in navigator) {
 }
 
 // ── Init ──────────────────────────────────────────
-actualizarDisplay();
+habilitarFormulario(false);
 cargarEdificio();
 if (tiempoRestanteSeg() > 0) arrancarTimer();
 </script>
