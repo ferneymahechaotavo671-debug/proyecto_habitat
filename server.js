@@ -1,18 +1,65 @@
-const express = require("express");
+"use strict";
+const express    = require("express");
+const mysql      = require("mysql2/promise");
+const path       = require("path");
+const ExcelJS    = require("exceljs");
+const cron       = require("node-cron");
 require("dotenv").config();
-const mysql = require("mysql2");
-const path = require("path");
-const ExcelJS = require("exceljs");
 
-const app = express();
+const app  = express();
 const PORT = process.env.PORT || 8080;
 
-const PASSWORD_ADMIN = "Habitat2026";
+// ─────────────────────────────────────────
+// SEGURIDAD: password SOLO en servidor
+// ─────────────────────────────────────────
+const PASSWORD_ADMIN = process.env.ADMIN_PASSWORD || "Habitat2026";
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "publico")));
 
+// ─────────────────────────────────────────
+// MEJORA #2: Pool en vez de createConnection
+// Reconexión automática, manejo de concurrencia
+// ─────────────────────────────────────────
+const pool = mysql.createPool({
+  host               : process.env.MYSQLHOST,
+  user               : process.env.MYSQLUSER,
+  password           : process.env.MYSQLPASSWORD,
+  database           : process.env.MYSQLDATABASE,
+  port               : process.env.MYSQLPORT,
+  waitForConnections : true,
+  connectionLimit    : 10,
+  timezone           : "+00:00",   // MEJORA #8: siempre UTC
+  decimalNumbers     : true,
+});
+
+// Test de conexión al arrancar
+pool.getConnection()
+  .then(conn => { console.log("✅ MySQL pool conectado"); conn.release(); })
+  .catch(err  => console.error("❌ Error DB:", err.message));
+
+// ─────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────
+function normalizar(t) {
+  return (t || "").toString().toLowerCase().trim()
+    .replace(/\s+/g, "").replace(/[^a-z0-9]/g, "");
+}
+
+// MEJORA #12: log de auditoría
+async function auditLog(accion, detalle, cedula = null) {
+  try {
+    await pool.execute(
+      "INSERT INTO audit_log (accion, detalle, cedula, fecha) VALUES (?,?,?,UTC_TIMESTAMP())",
+      [accion, JSON.stringify(detalle), cedula]
+    );
+  } catch { /* silencioso, no bloquear flujo */ }
+}
+
+// ─────────────────────────────────────────
+// MIDDLEWARE: validar admin (solo servidor)
+// ─────────────────────────────────────────
 function validarAdmin(req, res, next) {
   const auth = req.headers.authorization;
   if (!auth || auth !== PASSWORD_ADMIN) {
@@ -21,584 +68,486 @@ function validarAdmin(req, res, next) {
   next();
 }
 
-const db = mysql.createConnection({
-  host: process.env.MYSQLHOST,
-  user: process.env.MYSQLUSER,
-  password: process.env.MYSQLPASSWORD,
-  database: process.env.MYSQLDATABASE,
-  port: process.env.MYSQLPORT
-});
-
-db.connect(err => {
-  if (err) console.error("Error DB:", err);
-  else console.log("✅ MySQL conectado");
-});
-
-function normalizar(t) {
-  return (t || "")
-    .toString()
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, "")
-    .replace(/[^a-z0-9]/g, "");
+// ─────────────────────────────────────────
+// MANEJO GLOBAL DE ERRORES ASYNC
+// ─────────────────────────────────────────
+function asyncHandler(fn) {
+  return (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 }
 
+// ─────────────────────────────────────────
+// LOGIN
+// ─────────────────────────────────────────
 app.post("/login", (req, res) => {
-  if (req.body.password === PASSWORD_ADMIN) {
-    return res.json({ ok: true });
-  }
-  res.status(401).json({ ok: false });
+  if (req.body.password === PASSWORD_ADMIN) return res.json({ ok: true });
+  res.status(401).json({ ok: false, mensaje: "Contraseña incorrecta" });
 });
 
-app.get("/debug/rol/:cedula", (req, res) => {
-  db.query(
-    `SELECT u.cedula, u.nombre, u.rol_id, r.id AS rid, r.nombre AS rol_nombre
-     FROM usuarios u
-     LEFT JOIN roles r ON u.rol_id = r.id
-     WHERE u.cedula=?`,
-    [req.params.cedula],
-    (err, rows) => {
-      if (err) return res.status(500).json(err);
-      res.json(rows);
-    }
+// ─────────────────────────────────────────
+// EDIFICIOS
+// ─────────────────────────────────────────
+app.get("/admin/edificios", asyncHandler(async (req, res) => {
+  const [rows] = await pool.execute("SELECT * FROM edificios ORDER BY nombre ASC");
+  res.json(rows);
+}));
+
+app.post("/admin/agregar-edificio", validarAdmin, asyncHandler(async (req, res) => {
+  const { nombre } = req.body;
+  if (!nombre?.trim()) return res.status(400).json({ mensaje: "Nombre requerido" });
+  const codigo_qr = normalizar(nombre);
+  await pool.execute("INSERT INTO edificios (nombre, codigo_qr) VALUES (?,?)", [nombre.trim(), codigo_qr]);
+  await auditLog("agregar_edificio", { nombre, codigo_qr });
+  res.json({ ok: true });
+}));
+
+app.post("/admin/editar-edificio", validarAdmin, asyncHandler(async (req, res) => {
+  const { id, nombre } = req.body;
+  await pool.execute(
+    "UPDATE edificios SET nombre=?, codigo_qr=? WHERE id=?",
+    [nombre, normalizar(nombre), id]
   );
-});
+  await auditLog("editar_edificio", { id, nombre });
+  res.json({ ok: true });
+}));
 
-app.get("/admin/edificios", (req, res) => {
-  db.query("SELECT * FROM edificios", (err, data) => {
-    if (err) return res.status(500).json(err);
-    data.sort((a, b) => a.nombre.localeCompare(b.nombre));
-    res.json(data);
-  });
-});
+// ─────────────────────────────────────────
+// USUARIOS
+// ─────────────────────────────────────────
+app.post("/admin/crear-usuario", validarAdmin, asyncHandler(async (req, res) => {
+  const { nombre, cedula, rol_id } = req.body;
+  if (!nombre || !cedula) return res.status(400).json({ mensaje: "Datos incompletos" });
+  await pool.execute(
+    "INSERT INTO usuarios (nombre, cedula, rol_id) VALUES (?,?,?)",
+    [nombre, cedula, rol_id]
+  );
+  await auditLog("crear_usuario", { nombre, cedula, rol_id });
+  res.json({ ok: true });
+}));
 
-app.get("/admin/dispositivos", validarAdmin, (req, res) => {
-  db.query(`
-    SELECT 
-      d.id,
-      u.nombre,
-      d.cedula,
-      d.device_id,
-      d.autorizado,
-      e.nombre AS edificio
+app.post("/admin/editar-usuario", validarAdmin, asyncHandler(async (req, res) => {
+  const { id, nombre, cedula, rol_id } = req.body;
+  await pool.execute(
+    "UPDATE usuarios SET nombre=?, cedula=?, rol_id=? WHERE id=?",
+    [nombre, cedula, rol_id, id]
+  );
+  await auditLog("editar_usuario", { id, nombre, cedula });
+  res.json({ ok: true });
+}));
+
+// ─────────────────────────────────────────
+// DISPOSITIVOS
+// ─────────────────────────────────────────
+app.get("/admin/dispositivos", validarAdmin, asyncHandler(async (req, res) => {
+  const [rows] = await pool.execute(`
+    SELECT d.id, u.nombre, d.cedula, d.device_id, d.autorizado,
+           e.nombre AS edificio
     FROM dispositivos d
-    LEFT JOIN usuarios u ON d.cedula = u.cedula
+    LEFT JOIN usuarios u  ON d.cedula    = u.cedula
     LEFT JOIN edificios e ON d.edificio_id = e.id
     ORDER BY d.id DESC
-  `, (err, data) => {
-    if (err) return res.status(500).json(err);
-    res.json(data);
-  });
-});
+  `);
+  res.json(rows);
+}));
 
-app.post("/admin/aprobar-dispositivo", validarAdmin, (req, res) => {
-  db.query("UPDATE dispositivos SET autorizado=1 WHERE id=?", [req.body.id], (err) => {
-    if (err) return res.status(500).json(err);
-    res.json({ ok: true });
-  });
-});
+app.post("/admin/aprobar-dispositivo", validarAdmin, asyncHandler(async (req, res) => {
+  await pool.execute("UPDATE dispositivos SET autorizado=1 WHERE id=?", [req.body.id]);
+  await auditLog("aprobar_dispositivo", { id: req.body.id });
+  res.json({ ok: true });
+}));
 
-app.post("/admin/bloquear-dispositivo", validarAdmin, (req, res) => {
-  db.query("UPDATE dispositivos SET autorizado=0 WHERE id=?", [req.body.id], (err) => {
-    if (err) return res.status(500).json(err);
-    res.json({ ok: true });
-  });
-});
+app.post("/admin/bloquear-dispositivo", validarAdmin, asyncHandler(async (req, res) => {
+  await pool.execute("UPDATE dispositivos SET autorizado=0 WHERE id=?", [req.body.id]);
+  await auditLog("bloquear_dispositivo", { id: req.body.id });
+  res.json({ ok: true });
+}));
 
-app.post("/admin/agregar-dispositivo", validarAdmin, (req, res) => {
+app.post("/admin/agregar-dispositivo", validarAdmin, asyncHandler(async (req, res) => {
   const { cedula, device_id, edificio_ids } = req.body;
 
-  const getEdificios = (cb) => {
-    if (edificio_ids === "todos") {
-      db.query("SELECT id FROM edificios", (err, rows) => {
-        if (err) return res.status(500).json(err);
-        cb(rows.map(r => r.id));
-      });
-    } else {
-      const ids = Array.isArray(edificio_ids) ? edificio_ids : [edificio_ids];
-      cb(ids);
-    }
-  };
+  let ids;
+  if (edificio_ids === "todos") {
+    const [rows] = await pool.execute("SELECT id FROM edificios");
+    ids = rows.map(r => r.id);
+  } else {
+    ids = Array.isArray(edificio_ids) ? edificio_ids : [edificio_ids];
+  }
 
-  getEdificios((ids) => {
-    if (ids.length === 0) return res.json({ ok: true });
-
-    let pendientes = ids.length;
-    let huboError = false;
-
-    ids.forEach(edificio_id => {
-      db.query(
-        `SELECT id FROM dispositivos WHERE cedula=? AND edificio_id=? LIMIT 1`,
-        [cedula, edificio_id],
-        (err, rows) => {
-          if (err) { if (!huboError) { huboError = true; res.status(500).json(err); } return; }
-
-          const done = () => {
-            pendientes--;
-            if (pendientes === 0 && !huboError) res.json({ ok: true });
-          };
-
-          if (rows.length > 0) {
-            db.query(
-              `UPDATE dispositivos SET device_id=?, autorizado=1 WHERE id=?`,
-              [device_id || "", rows[0].id],
-              (err) => { if (err && !huboError) { huboError = true; res.status(500).json(err); return; } done(); }
-            );
-          } else {
-            db.query(
-              `INSERT INTO dispositivos (cedula, device_id, edificio_id, autorizado) VALUES (?,?,?,1)`,
-              [cedula, device_id || "", edificio_id],
-              (err) => { if (err && !huboError) { huboError = true; res.status(500).json(err); return; } done(); }
-            );
-          }
-        }
+  for (const edificio_id of ids) {
+    const [existing] = await pool.execute(
+      "SELECT id FROM dispositivos WHERE cedula=? AND edificio_id=? LIMIT 1",
+      [cedula, edificio_id]
+    );
+    if (existing.length > 0) {
+      await pool.execute(
+        "UPDATE dispositivos SET device_id=?, autorizado=1 WHERE id=?",
+        [device_id || "", existing[0].id]
       );
-    });
-  });
-});
+    } else {
+      await pool.execute(
+        "INSERT INTO dispositivos (cedula, device_id, edificio_id, autorizado) VALUES (?,?,?,1)",
+        [cedula, device_id || "", edificio_id]
+      );
+    }
+  }
 
-// =========================
-// REGISTROS + ALERTA 12H (CORREGIDO)
-// Evalúa TODOS los registros de entrada, no solo uno
-// =========================
-app.get("/admin/registros", validarAdmin, (req, res) => {
+  await auditLog("agregar_dispositivo", { cedula, edificio_ids });
+  res.json({ ok: true });
+}));
 
-  let sql = `SELECT * FROM registros WHERE 1=1`;
-  const params = [];
+app.post("/admin/asignar-edificio", validarAdmin, asyncHandler(async (req, res) => {
+  await pool.execute(
+    "INSERT INTO dispositivos (cedula, device_id, edificio_id) VALUES (?,?,?)",
+    [req.body.cedula, "", req.body.edificio_id]
+  );
+  res.json({ ok: true });
+}));
 
+app.post("/admin/quitar-permiso", validarAdmin, asyncHandler(async (req, res) => {
+  await pool.execute(
+    "DELETE FROM dispositivos WHERE cedula=? AND edificio_id=?",
+    [req.body.cedula, req.body.edificio_id]
+  );
+  res.json({ ok: true });
+}));
+
+// ─────────────────────────────────────────
+// REGISTROS con alerta 12h
+// MEJORA #3: params siempre parametrizados (no concatenación)
+// MEJORA #9: paginación
+// ─────────────────────────────────────────
+app.get("/admin/registros", validarAdmin, asyncHandler(async (req, res) => {
+  const conditions = ["1=1"];
+  const params     = [];
+
+  // MEJORA #3: nunca concatenar — siempre ? 
   if (req.query.edificio_id) {
-    sql += " AND edificio_id=?";
-    params.push(req.query.edificio_id);
+    const eid = parseInt(req.query.edificio_id, 10);
+    if (!isNaN(eid)) { conditions.push("edificio_id=?"); params.push(eid); }
   }
-
   if (req.query.cedula) {
-    sql += " AND cedula=?";
-    params.push(req.query.cedula);
+    // solo dígitos
+    const ced = req.query.cedula.replace(/\D/g, "");
+    if (ced) { conditions.push("cedula=?"); params.push(ced); }
+  }
+  if (req.query.fecha_desde) {
+    conditions.push("fecha_hora >= ?");
+    params.push(req.query.fecha_desde + " 00:00:00");
+  }
+  if (req.query.fecha_hasta) {
+    conditions.push("fecha_hora <= ?");
+    params.push(req.query.fecha_hasta + " 23:59:59");
   }
 
-  sql += " ORDER BY fecha_hora ASC"; // ASC para procesar cronológicamente
+  // MEJORA #9: paginación
+  const limit  = Math.min(parseInt(req.query.limit  || "100", 10), 500);
+  const offset = parseInt(req.query.offset || "0", 10);
 
-  db.query(sql, params, (err, data) => {
-    if (err) return res.status(500).json(err);
+  const where = conditions.join(" AND ");
 
-    const ahora = new Date();
+  // Para calcular alertas necesitamos todos (sin límite), pero solo IDs
+  const [todos] = await pool.execute(
+    `SELECT id, cedula, edificio_id, tipo_registro, fecha_hora FROM registros WHERE ${where} ORDER BY fecha_hora ASC`,
+    params
+  );
 
-    // Construir mapa de entradas activas (sin salida posterior)
-    // clave: cedula + edificio_id → fecha de entrada más reciente sin salida
-    const entradasActivas = new Map();
+  const ahora = new Date();
+  const entradasActivas = new Map();
 
-    data.forEach(r => {
-      const clave = `${r.cedula}_${r.edificio_id}`;
-
-      if (r.tipo_registro === "Entrada") {
-        // Guardar esta entrada (puede haber varias, nos quedamos con la más reciente)
-        // Como están en orden ASC, cada nueva entrada sobreescribe la anterior
-        entradasActivas.set(clave, {
-          id: r.id,
-          fecha: new Date(r.fecha_hora)
-        });
-      } else if (r.tipo_registro === "Salida") {
-        // Esta salida cierra la entrada activa para esta clave
-        entradasActivas.delete(clave);
-      }
-    });
-
-    // IDs de entradas que están activas (sin salida) y llevan +12h
-    const idsEnAlerta = new Set();
-
-    entradasActivas.forEach((entrada) => {
-      const diffHoras = (ahora - entrada.fecha) / (1000 * 60 * 60);
-      if (diffHoras > 12) {
-        idsEnAlerta.add(entrada.id);
-      }
-    });
-
-    // Mapear los registros añadiendo observacion
-    // Devolver en orden DESC para que el admin vea lo más reciente primero
-    const procesado = data
-      .slice()
-      .reverse()
-      .map(r => {
-        const obs = idsEnAlerta.has(r.id) ? "🚨 Salida no registrada" : "";
-        return { ...r, observacion: obs };
-      });
-
-    res.json(procesado);
-  });
-});
-
-// =========================
-// CRON: PERSISTIR ALERTAS EN BD (CORREGIDO)
-// Marca TODAS las entradas sin salida con +12h,
-// no solo las que no tienen ningún registro posterior
-// =========================
-setInterval(() => {
-
-  // Paso 1: obtener todas las entradas que llevan más de 12h
-  db.query(`
-    SELECT id, cedula, edificio_id, fecha_hora
-    FROM registros
-    WHERE tipo_registro = 'Entrada'
-      AND TIMESTAMPDIFF(HOUR, fecha_hora, NOW()) > 12
-  `, (err, entradas) => {
-
-    if (err) { console.log("Error cron step1:", err.message); return; }
-    if (entradas.length === 0) return;
-
-    // Paso 2: para cada entrada, verificar si tiene salida posterior
-    let pendientes = entradas.length;
-
-    entradas.forEach(entrada => {
-
-      db.query(`
-        SELECT id FROM registros
-        WHERE cedula = ?
-          AND edificio_id = ?
-          AND tipo_registro = 'Salida'
-          AND fecha_hora > ?
-        LIMIT 1
-      `, [entrada.cedula, entrada.edificio_id, entrada.fecha_hora],
-      (err, salidas) => {
-
-        pendientes--;
-
-        if (err) { console.log("Error cron step2:", err.message); return; }
-
-        // Solo marcar si NO tiene salida posterior
-        if (salidas.length === 0) {
-          db.query(
-            `UPDATE registros SET observacion = '🚨 Salida no registrada' WHERE id = ?`,
-            [entrada.id],
-            (err) => {
-              if (err) console.log("Error cron update:", err.message);
-            }
-          );
-        }
-
-      });
-
-    });
-
+  todos.forEach(r => {
+    const clave = `${r.cedula}_${r.edificio_id}`;
+    if (r.tipo_registro === "Entrada") {
+      entradasActivas.set(clave, { id: r.id, fecha: new Date(r.fecha_hora) });
+    } else if (r.tipo_registro === "Salida") {
+      entradasActivas.delete(clave);
+    }
   });
 
-}, 10 * 60 * 1000);
+  const idsEnAlerta = new Set();
+  entradasActivas.forEach(entrada => {
+    if ((ahora - entrada.fecha) / 3_600_000 > 12) idsEnAlerta.add(entrada.id);
+  });
 
-// =========================
-// REGISTRO QR
-// =========================
-app.post("/registro", (req, res) => {
+  // Ahora traer la página con todos los campos
+  const [pagina] = await pool.execute(
+    `SELECT * FROM registros WHERE ${where} ORDER BY fecha_hora DESC LIMIT ? OFFSET ?`,
+    [...params, limit, offset]
+  );
 
-  const cedula = req.body.cedula?.toString().trim();
+  // Contar total para paginación en cliente
+  const [[{ total }]] = await pool.execute(
+    `SELECT COUNT(*) AS total FROM registros WHERE ${where}`,
+    params
+  );
+
+  const procesado = pagina.map(r => ({
+    ...r,
+    observacion: idsEnAlerta.has(r.id) ? "🚨 Salida no registrada" : (r.observacion || ""),
+  }));
+
+  res.json({ registros: procesado, total, limit, offset });
+}));
+
+// ─────────────────────────────────────────
+// REGISTRO QR — MEJORA #6: async/await lineal
+// ─────────────────────────────────────────
+app.post("/registro", asyncHandler(async (req, res) => {
+  const cedula        = req.body.cedula?.toString().trim();
   const codigoEdificio = normalizar(req.body.codigoEdificio);
-  const deviceId = req.body.deviceId;
+  const deviceId      = req.body.deviceId;
 
   if (!cedula || !codigoEdificio) {
     return res.status(400).json({ mensaje: "Datos incompletos ❌" });
   }
 
-  db.query("SELECT * FROM edificios", (err, eds) => {
-    if (err) return res.status(500).json({ mensaje: "Error DB" });
+  // 1. Buscar edificio
+  const [edificios] = await pool.execute("SELECT * FROM edificios");
+  const edificio = edificios.find(e => normalizar(e.codigo_qr) === codigoEdificio);
+  if (!edificio) return res.json({ mensaje: "QR inválido ❌" });
 
-    const edificio = eds.find(e => normalizar(e.codigo_qr) === codigoEdificio);
-
-    if (!edificio) {
-      return res.json({ mensaje: "QR inválido ❌" });
-    }
-
-    db.query(
-      `SELECT u.id, u.nombre, IFNULL(r.nombre,'usuario') AS rol
-       FROM usuarios u
-       LEFT JOIN roles r ON u.rol_id = r.id
-       WHERE u.cedula=?`,
-      [cedula],
-      (err, users) => {
-        if (err) return res.status(500).json({ mensaje: "Error usuario" });
-
-        if (users.length === 0) {
-          return res.json({ mensaje: "Usuario no existe ❌" });
-        }
-
-        const user = users[0];
-
-        db.query(
-          `SELECT * FROM dispositivos WHERE device_id=? AND cedula<>?`,
-          [deviceId, cedula],
-          (err, usados) => {
-            if (err) return res.status(500).json({ mensaje: "Error validando dispositivo" });
-
-            if (usados.length > 0) {
-              return res.status(403).json({
-                mensaje: "🚫 Este celular ya pertenece a otra persona"
-              });
-            }
-
-            if (user.rol === "Administración") {
-
-              db.query(
-                `SELECT * FROM dispositivos WHERE cedula=?`,
-                [cedula],
-                (err, adminDevs) => {
-                  if (err) return res.status(500).json({ mensaje: "Error dispositivos admin" });
-
-                  if (adminDevs.length === 0) {
-
-                    db.query("SELECT id FROM edificios", (err, todosEds) => {
-                      if (err) return res.status(500).json({ mensaje: "Error edificios" });
-
-                      const values = todosEds.map(e => [cedula, deviceId, e.id, 1]);
-
-                      db.query(
-                        "INSERT INTO dispositivos (cedula, device_id, edificio_id, autorizado) VALUES ?",
-                        [values],
-                        (err) => {
-                          if (err) return res.status(500).json({ mensaje: "Error registrando admin" });
-                          registrarMovimiento(user, edificio, cedula, res);
-                        }
-                      );
-                    });
-
-                  } else {
-
-                    const essuyo = adminDevs.some(d => d.device_id === deviceId);
-
-                    if (!essuyo) {
-                      return res.status(403).json({
-                        mensaje: "🚫 Este celular no corresponde a este administrador"
-                      });
-                    }
-
-                    registrarMovimiento(user, edificio, cedula, res);
-                  }
-                }
-              );
-
-              return;
-            }
-
-            db.query(
-              `SELECT * FROM dispositivos WHERE cedula=? AND device_id<>?`,
-              [cedula, deviceId],
-              (err, otrosDevices) => {
-                if (err) return res.status(500).json({ mensaje: "Error validando cédula" });
-
-                if (otrosDevices.length > 0) {
-                  return res.status(403).json({
-                    mensaje: "🚫 Esta cédula ya está asociada a otro celular"
-                  });
-                }
-
-                db.query(
-                  `SELECT * FROM dispositivos
-                   WHERE cedula=? AND edificio_id=?
-                   AND (device_id=? OR device_id='')
-                   ORDER BY CASE WHEN device_id=? THEN 0 ELSE 1 END
-                   LIMIT 1`,
-                  [cedula, edificio.id, deviceId, deviceId],
-                  (err, devs) => {
-                    if (err) return res.status(500).json({ mensaje: "Error dispositivos" });
-
-                    if (devs.length === 0) {
-                      db.query(
-                        `INSERT INTO dispositivos (cedula, device_id, edificio_id, autorizado)
-                         VALUES (?, ?, ?, 0)`,
-                        [cedula, deviceId, edificio.id]
-                      );
-                      return res.status(403).json({
-                        mensaje: "⏳ Dispositivo pendiente de aprobación"
-                      });
-                    }
-
-                    const dispositivo = devs[0];
-
-                    if (dispositivo.autorizado != 1) {
-                      return res.status(403).json({
-                        mensaje: "🚫 Dispositivo no autorizado aún"
-                      });
-                    }
-
-                    if (dispositivo.device_id === "" || dispositivo.device_id === null) {
-                      db.query(
-                        `UPDATE dispositivos SET device_id=? WHERE id=?`,
-                        [deviceId, dispositivo.id],
-                        (err) => {
-                          if (err) return res.status(500).json({ mensaje: "Error actualizando device" });
-                          registrarMovimiento(user, edificio, cedula, res);
-                        }
-                      );
-                    } else {
-                      registrarMovimiento(user, edificio, cedula, res);
-                    }
-                  }
-                );
-              }
-            );
-          }
-        );
-      }
-    );
-  });
-});
-
-// =========================
-// HELPER: REGISTRAR ENTRADA O SALIDA
-// =========================
-function registrarMovimiento(user, edificio, cedula, res) {
-
-  db.query(
-    `SELECT * FROM registros
-     WHERE cedula=? AND edificio_id=?
-     ORDER BY fecha_hora DESC LIMIT 1`,
-    [cedula, edificio.id],
-    (err, last) => {
-      if (err) return res.status(500).json({ mensaje: "Error consultando registros" });
-
-      const ahora = new Date();
-
-      if (last && last.length > 0) {
-        const ultimo = last[0];
-        const fechaUltimo = new Date(ultimo.fecha_hora);
-        const diffMin = (ahora - fechaUltimo) / (1000 * 60);
-        const tipoUltimo = ultimo.tipo_registro;
-
-        if (diffMin < 60) {
-          const minRestantes = Math.ceil(60 - diffMin);
-          let msg = "";
-
-          if (tipoUltimo === "Entrada") {
-            msg = `⚠️ Ya tienes una Entrada registrada. Podrás registrar tu Salida en ${minRestantes} minuto${minRestantes !== 1 ? "s" : ""}.`;
-          } else {
-            msg = `⚠️ Ya tienes una Salida registrada. Podrás registrar tu próxima Entrada en ${minRestantes} minuto${minRestantes !== 1 ? "s" : ""}.`;
-          }
-
-          return res.status(429).json({ mensaje: msg });
-        }
-      }
-
-      const tipo = (last && last.length > 0 && last[0].tipo_registro === "Entrada")
-        ? "Salida"
-        : "Entrada";
-
-      db.query(
-        `INSERT INTO registros
-         (nombre, cedula, edificio, tipo_registro, edificio_id, rol)
-         VALUES (?,?,?,?,?,?)`,
-        [user.nombre, cedula, edificio.nombre, tipo, edificio.id, user.rol],
-        () => {
-          res.json({
-            mensaje: `${tipo} registrada ✅`,
-            edificio: edificio.nombre
-          });
-        }
-      );
-    }
+  // 2. Buscar usuario
+  const [[user]] = await pool.execute(
+    `SELECT u.id, u.nombre, IFNULL(r.nombre,'usuario') AS rol
+     FROM usuarios u
+     LEFT JOIN roles r ON u.rol_id = r.id
+     WHERE u.cedula=?`,
+    [cedula]
   );
+  if (!user) return res.json({ mensaje: "Usuario no existe ❌" });
+
+  // 3. Device en uso por otra cédula
+  const [usados] = await pool.execute(
+    "SELECT id FROM dispositivos WHERE device_id=? AND cedula<>?",
+    [deviceId, cedula]
+  );
+  if (usados.length > 0) {
+    return res.status(403).json({ mensaje: "🚫 Este celular ya pertenece a otra persona" });
+  }
+
+  // 4. Admin: registrar dispositivo automáticamente en todos los edificios
+  if (user.rol === "Administración") {
+    const [adminDevs] = await pool.execute(
+      "SELECT * FROM dispositivos WHERE cedula=?", [cedula]
+    );
+    if (adminDevs.length === 0) {
+      const [todos] = await pool.execute("SELECT id FROM edificios");
+      const values  = todos.map(e => [cedula, deviceId, e.id, 1]);
+      await pool.query(
+        "INSERT INTO dispositivos (cedula, device_id, edificio_id, autorizado) VALUES ?",
+        [values]
+      );
+    } else if (!adminDevs.some(d => d.device_id === deviceId)) {
+      return res.status(403).json({ mensaje: "🚫 Este celular no corresponde a este administrador" });
+    }
+    return registrarMovimiento(user, edificio, cedula, res);
+  }
+
+  // 5. Cédula en otro dispositivo
+  const [otrosDevs] = await pool.execute(
+    "SELECT id FROM dispositivos WHERE cedula=? AND device_id<>?",
+    [cedula, deviceId]
+  );
+  if (otrosDevs.length > 0) {
+    return res.status(403).json({ mensaje: "🚫 Esta cédula ya está asociada a otro celular" });
+  }
+
+  // 6. Buscar permiso para este edificio
+  const [devs] = await pool.execute(
+    `SELECT * FROM dispositivos
+     WHERE cedula=? AND edificio_id=?
+     AND (device_id=? OR device_id='')
+     ORDER BY CASE WHEN device_id=? THEN 0 ELSE 1 END LIMIT 1`,
+    [cedula, edificio.id, deviceId, deviceId]
+  );
+
+  if (devs.length === 0) {
+    await pool.execute(
+      "INSERT INTO dispositivos (cedula, device_id, edificio_id, autorizado) VALUES (?,?,?,0)",
+      [cedula, deviceId, edificio.id]
+    );
+    return res.status(403).json({ mensaje: "⏳ Dispositivo pendiente de aprobación" });
+  }
+
+  const dispositivo = devs[0];
+  if (dispositivo.autorizado != 1) {
+    return res.status(403).json({ mensaje: "🚫 Dispositivo no autorizado aún" });
+  }
+
+  if (!dispositivo.device_id) {
+    await pool.execute(
+      "UPDATE dispositivos SET device_id=? WHERE id=?",
+      [deviceId, dispositivo.id]
+    );
+  }
+
+  return registrarMovimiento(user, edificio, cedula, res);
+}));
+
+// ─────────────────────────────────────────
+// HELPER REGISTRAR MOVIMIENTO (async)
+// ─────────────────────────────────────────
+async function registrarMovimiento(user, edificio, cedula, res) {
+  const [last] = await pool.execute(
+    "SELECT * FROM registros WHERE cedula=? AND edificio_id=? ORDER BY fecha_hora DESC LIMIT 1",
+    [cedula, edificio.id]
+  );
+
+  if (last.length > 0) {
+    const diffMin = (Date.now() - new Date(last[0].fecha_hora)) / 60_000;
+    if (diffMin < 60) {
+      const min = Math.ceil(60 - diffMin);
+      const tipo = last[0].tipo_registro;
+      const msg  = tipo === "Entrada"
+        ? `⚠️ Ya tienes una Entrada registrada. Salida disponible en ${min} min.`
+        : `⚠️ Ya tienes una Salida registrada. Próxima Entrada en ${min} min.`;
+      return res.status(429).json({ mensaje: msg });
+    }
+  }
+
+  const tipo = (last.length > 0 && last[0].tipo_registro === "Entrada") ? "Salida" : "Entrada";
+
+  await pool.execute(
+    "INSERT INTO registros (nombre, cedula, edificio, tipo_registro, edificio_id, rol) VALUES (?,?,?,?,?,?)",
+    [user.nombre, cedula, edificio.nombre, tipo, edificio.id, user.rol]
+  );
+
+  await auditLog("registro_qr", { cedula, edificio: edificio.nombre, tipo }, cedula);
+
+  res.json({ mensaje: `${tipo} registrada ✅`, edificio: edificio.nombre, tipo });
 }
 
-// =========================
-// CRUD USUARIOS
-// =========================
-app.post("/admin/crear-usuario", validarAdmin, (req, res) => {
-  db.query(
-    "INSERT INTO usuarios (nombre, cedula, rol_id) VALUES (?,?,?)",
-    [req.body.nombre, req.body.cedula, req.body.rol_id],
-    () => res.json({ ok: true })
-  );
-});
-
-app.post("/admin/editar-usuario", validarAdmin, (req, res) => {
-  db.query(
-    "UPDATE usuarios SET nombre=?, cedula=?, rol_id=? WHERE id=?",
-    [req.body.nombre, req.body.cedula, req.body.rol_id, req.body.id],
-    () => res.json({ ok: true })
-  );
-});
-
-// =========================
-// CRUD EDIFICIOS
-// =========================
-app.post("/admin/agregar-edificio", validarAdmin, (req, res) => {
-  db.query(
-    "INSERT INTO edificios (nombre, codigo_qr) VALUES (?,?)",
-    [req.body.nombre, normalizar(req.body.nombre)],
-    () => res.json({ ok: true })
-  );
-});
-
-app.post("/admin/editar-edificio", validarAdmin, (req, res) => {
-  db.query(
-    "UPDATE edificios SET nombre=?, codigo_qr=? WHERE id=?",
-    [req.body.nombre, normalizar(req.body.nombre), req.body.id],
-    () => res.json({ ok: true })
-  );
-});
-
-// =========================
-// PERMISOS
-// =========================
-app.post("/admin/asignar-edificio", validarAdmin, (req, res) => {
-  db.query(
-    "INSERT INTO dispositivos (cedula, device_id, edificio_id) VALUES (?,?,?)",
-    [req.body.cedula, "", req.body.edificio_id],
-    () => res.json({ ok: true })
-  );
-});
-
-app.post("/admin/quitar-permiso", validarAdmin, (req, res) => {
-  db.query(
-    "DELETE FROM dispositivos WHERE cedula=? AND edificio_id=?",
-    [req.body.cedula, req.body.edificio_id],
-    () => res.json({ ok: true })
-  );
-});
-
-// =========================
-// EXPORTAR EXCEL
-// =========================
-app.get("/admin/exportar-excel", validarAdmin, (req, res) => {
-
-  let sql = "SELECT * FROM registros WHERE 1=1";
-  const params = [];
+// ─────────────────────────────────────────
+// EXPORTAR EXCEL — MEJORA: autenticación correcta
+// (Bearer token en header, no window.location)
+// ─────────────────────────────────────────
+app.get("/admin/exportar-excel", validarAdmin, asyncHandler(async (req, res) => {
+  const conditions = ["1=1"];
+  const params     = [];
 
   if (req.query.edificio_id) {
-    sql += " AND edificio_id=?";
-    params.push(req.query.edificio_id);
+    const eid = parseInt(req.query.edificio_id, 10);
+    if (!isNaN(eid)) { conditions.push("edificio_id=?"); params.push(eid); }
   }
-
   if (req.query.cedula) {
-    sql += " AND cedula=?";
-    params.push(req.query.cedula);
+    const ced = req.query.cedula.replace(/\D/g, "");
+    if (ced) { conditions.push("cedula=?"); params.push(ced); }
+  }
+  if (req.query.fecha_desde) {
+    conditions.push("fecha_hora >= ?");
+    params.push(req.query.fecha_desde + " 00:00:00");
+  }
+  if (req.query.fecha_hasta) {
+    conditions.push("fecha_hora <= ?");
+    params.push(req.query.fecha_hasta + " 23:59:59");
   }
 
-  sql += " ORDER BY fecha_hora DESC";
+  const [rows] = await pool.execute(
+    `SELECT * FROM registros WHERE ${conditions.join(" AND ")} ORDER BY fecha_hora DESC`,
+    params
+  );
 
-  db.query(sql, params, async (err, rows) => {
-    if (err) return res.status(500).json(err);
+  const wb    = new ExcelJS.Workbook();
+  const sheet = wb.addWorksheet("Registros");
 
-    const workbook = new ExcelJS.Workbook();
-    const sheet = workbook.addWorksheet("Registros");
+  sheet.columns = [
+    { header: "ID",          key: "id",            width: 8  },
+    { header: "Nombre",      key: "nombre",         width: 28 },
+    { header: "Cédula",      key: "cedula",         width: 18 },
+    { header: "Edificio",    key: "edificio",       width: 24 },
+    { header: "Rol",         key: "rol",            width: 16 },
+    { header: "Tipo",        key: "tipo_registro",  width: 12 },
+    { header: "Fecha (UTC)", key: "fecha_hora",     width: 22 },
+    { header: "Observación", key: "observacion",    width: 28 },
+  ];
 
-    sheet.columns = [
-      { header: "ID", key: "id", width: 10 },
-      { header: "Nombre", key: "nombre", width: 30 },
-      { header: "Cédula", key: "cedula", width: 20 },
-      { header: "Edificio", key: "edificio", width: 25 },
-      { header: "Rol", key: "rol", width: 15 },
-      { header: "Tipo", key: "tipo_registro", width: 15 },
-      { header: "Fecha", key: "fecha_hora", width: 25 },
-      { header: "Observación", key: "observacion", width: 30 }
-    ];
-
-    rows.forEach(r => { sheet.addRow(r); });
-
-    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-    res.setHeader("Content-Disposition", "attachment; filename=registros.xlsx");
-
-    await workbook.xlsx.write(res);
-    res.end();
+  // Estilos header
+  sheet.getRow(1).eachCell(cell => {
+    cell.fill   = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1F7A63" } };
+    cell.font   = { bold: true, color: { argb: "FFFFFFFF" } };
+    cell.border = { bottom: { style: "thin" } };
   });
+
+  rows.forEach(r => {
+    const row = sheet.addRow(r);
+    if (r.observacion) {
+      row.getCell("observacion").font = { color: { argb: "FFCC0000" }, bold: true };
+    }
+    if (r.tipo_registro === "Entrada") {
+      row.getCell("tipo_registro").font = { color: { argb: "FF1F7A63" }, bold: true };
+    } else {
+      row.getCell("tipo_registro").font = { color: { argb: "FF0F3D2E" } };
+    }
+  });
+
+  await auditLog("exportar_excel", { filtros: req.query });
+
+  res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  res.setHeader("Content-Disposition", `attachment; filename="registros-${Date.now()}.xlsx"`);
+  await wb.xlsx.write(res);
+  res.end();
+}));
+
+// ─────────────────────────────────────────
+// CRON — MEJORA #5: node-cron cada hora en punto
+// MEJORA: lógica corregida (entrada sin salida posterior)
+// ─────────────────────────────────────────
+cron.schedule("0 * * * *", async () => {
+  try {
+    const [entradas] = await pool.execute(`
+      SELECT id, cedula, edificio_id, fecha_hora FROM registros
+      WHERE tipo_registro = 'Entrada'
+        AND TIMESTAMPDIFF(HOUR, fecha_hora, UTC_TIMESTAMP()) > 12
+        AND (observacion IS NULL OR observacion = '')
+    `);
+
+    for (const entrada of entradas) {
+      const [salidas] = await pool.execute(`
+        SELECT id FROM registros
+        WHERE cedula=? AND edificio_id=? AND tipo_registro='Salida'
+          AND fecha_hora > ?
+        LIMIT 1
+      `, [entrada.cedula, entrada.edificio_id, entrada.fecha_hora]);
+
+      if (salidas.length === 0) {
+        await pool.execute(
+          "UPDATE registros SET observacion='🚨 Salida no registrada' WHERE id=?",
+          [entrada.id]
+        );
+      }
+    }
+    if (entradas.length) console.log(`⏰ Cron: ${entradas.length} alertas procesadas`);
+  } catch (err) {
+    console.error("❌ Error cron:", err.message);
+  }
 });
 
-// =========================
-// SERVER
-// =========================
-app.listen(PORT, () => console.log("Servidor corriendo en", PORT));
+// ─────────────────────────────────────────
+// MIDDLEWARE DE ERRORES GLOBAL — MEJORA #7
+// ─────────────────────────────────────────
+app.use((err, req, res, _next) => {
+  console.error("❌ Error no manejado:", err.message, err.stack);
+  res.status(500).json({ mensaje: "Error interno del servidor" });
+});
+
+// ─────────────────────────────────────────
+// AUDIT LOG TABLE (crear si no existe)
+// ─────────────────────────────────────────
+async function initDB() {
+  try {
+    await pool.execute(`
+      CREATE TABLE IF NOT EXISTS audit_log (
+        id      INT AUTO_INCREMENT PRIMARY KEY,
+        accion  VARCHAR(80) NOT NULL,
+        detalle TEXT,
+        cedula  VARCHAR(30),
+        fecha   DATETIME NOT NULL
+      )
+    `);
+    console.log("✅ Tabla audit_log lista");
+  } catch (err) {
+    console.error("⚠️ No se pudo crear audit_log:", err.message);
+  }
+}
+
+initDB().then(() => {
+  app.listen(PORT, () => console.log(`🚀 Servidor en puerto ${PORT}`));
+});

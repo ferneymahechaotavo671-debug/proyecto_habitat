@@ -1,10 +1,11 @@
 {
   "name": "proyecto-habitat",
-  "version": "1.0.0",
-  "description": "Sistema de registro QR para personal de aseo",
+  "version": "2.0.0",
+  "description": "Sistema de registro QR para personal de aseo - Habitat Seguridad",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev": "node --watch server.js"
   },
   "keywords": [],
   "author": "",

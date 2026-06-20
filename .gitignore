@@ -1,1 +1,13 @@
+# Credenciales — NUNCA subir al repositorio
 .env
+
+# Dependencias
+node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Sistema
+.DS_Store
+Thumbs.db
