@@ -460,7 +460,20 @@ async function registrarMovimiento(user, edificio, cedula, res) {
     }
   }
 
-  const tipo = (last.length > 0 && last[0].tipo_registro === "Entrada") ? "Salida" : "Entrada";
+  // Si la última Entrada fue en un día distinto al de hoy (ciclo sin salida),
+  // reiniciar el ciclo para que hoy registre una nueva Entrada.
+  let tipo;
+  if (last.length > 0 && last[0].tipo_registro === "Entrada") {
+    const fechaUltimo = new Date(last[0].fecha_hora);
+    const hoy = new Date();
+    const mismodia =
+      fechaUltimo.getFullYear() === hoy.getFullYear() &&
+      fechaUltimo.getMonth()    === hoy.getMonth()    &&
+      fechaUltimo.getDate()     === hoy.getDate();
+    tipo = mismodia ? "Salida" : "Entrada";
+  } else {
+    tipo = "Entrada";
+  }
 
   await pool.execute(
     "INSERT INTO registros (nombre, cedula, edificio, tipo_registro, edificio_id, rol) VALUES (?,?,?,?,?,?)",
