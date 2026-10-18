@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Habitat · Registro</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#0a2e1f">
+<link rel="apple-touch-icon" href="/logo.png">
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+:root {
+  --verde-oscuro : #0a2e1f;
+  --verde-medio  : #155c3a;
+  --verde-vivo   : #1db868;
+  --verde-claro  : #d4f5e2;
+  --rojo         : #e53e3e;
+  --naranja      : #dd6b20;
+  --blanco       : #ffffff;
+  --gris-100     : #f7f8f6;
+  --gris-300     : #d1d5db;
+  --gris-600     : #6b7280;
+  --sombra       : 0 4px 24px rgba(0,0,0,.18);
+  --radio        : 16px;
+  --radio-sm     : 10px;
+  --trans        : .2s ease;
+}
+
+html, body {
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  background: var(--verde-oscuro);
+  color: var(--verde-oscuro);
+  overflow-x: hidden;
+}
+
+/* ── MEJORA 3: Fondo animado ── */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 10%, rgba(29,184,104,.13) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 80% at 80% 90%, rgba(21,92,58,.25) 0%, transparent 70%);
+  animation: bgBreath 7s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+@keyframes bgBreath {
+  from { opacity: .6; transform: scale(1); }
+  to   { opacity: 1;  transform: scale(1.06); }
+}
+
+.app {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  max-width: 430px;
+  margin: 0 auto;
+}
+
+/* ── Header ── */
+.header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 14px 16px 0;
+  padding: 12px 16px;
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: var(--radio);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 4px 16px rgba(0,0,0,.15);
+}
+.header img { width: 38px; height: 38px; object-fit: contain; border-radius: 8px; background: var(--blanco); padding: 3px; }
+.header-text { flex: 1; }
+.header-text h1 { font-size: 15px; font-weight: 700; color: var(--blanco); letter-spacing: .3px; }
+/* ── MEJORA 7: Reloj en tiempo real ── */
+.header-clock {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--blanco);
+  letter-spacing: 1px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.header-clock-date {
+  font-size: 10px;
+  color: rgba(255,255,255,.5);
+  margin-top: 2px;
+  text-transform: capitalize;
+}
+
+/* ── Card edificio ── */
+.edificio-card {
+  margin: 8px 16px 0;
+  background: var(--verde-medio);
+  border-radius: var(--radio);
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: var(--trans);
+}
+.edificio-card.invalido { background: #7b2020; }
+.edificio-icon {
+  width: 42px; height: 42px;
+  background: rgba(255,255,255,.12);
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; flex-shrink: 0;
+}
+.edificio-info h2  { font-size: 16px; font-weight: 700; color: var(--blanco); line-height: 1.2; }
+.edificio-info span{ font-size: 11px; color: rgba(255,255,255,.6); margin-top: 2px; display: block; }
+
+/* ── Card principal ── */
+.card {
+  margin: 12px 16px 0;
+  background: var(--blanco);
+  border-radius: var(--radio);
+  padding: 20px 18px;
+  box-shadow: var(--sombra);
+  flex: 1;
+}
+
+/* ── MEJORA 2: Chip próximo registro ── */
+.proximo-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.proximo-label { font-size: 11px; font-weight: 600; color: var(--gris-600); }
+.tipo-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 13px;
+  border-radius: 99px;
+  font-size: 12px;
+  font-weight: 700;
+  transition: var(--trans);
+}
+.tipo-chip.entrada { background: var(--verde-claro); color: #145a30; }
+.tipo-chip.salida  { background: #fff8ec; color: var(--naranja); }
+.tipo-chip.desconocido { background: var(--gris-100); color: var(--gris-600); }
+
+/* ── Estado ── */
+.estado {
+  border-radius: var(--radio-sm);
+  padding: 11px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  margin-bottom: 16px;
+  transition: var(--trans);
+}
+.estado.idle    { background: var(--gris-100); color: var(--gris-600); }
+.estado.ok      { background: var(--verde-claro); color: #145a30; }
+.estado.error   { background: #fff0f0; color: var(--rojo); }
+.estado.warning { background: #fff8ec; color: var(--naranja); }
+
+/* ── Input de cédula (nativo) ── */
+.cedula-display {
+  background: var(--gris-100);
+  border: 1.5px solid var(--gris-300);
+  border-radius: var(--radio-sm);
+  padding: 4px 16px;
+  margin-bottom: 12px;
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: var(--trans);
+}
+.cedula-display:focus-within { border-color: var(--verde-vivo); box-shadow: 0 0 0 3px rgba(29,184,104,.15); }
+.cedula-display svg { flex-shrink:0; color: var(--gris-300); }
+.cedula-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--verde-oscuro);
+  letter-spacing: 2px;
+  font-variant-numeric: tabular-nums;
+  font-family: inherit;
+}
+.cedula-input::placeholder { font-size: 14px; font-weight: 400; color: var(--gris-300); letter-spacing: normal; }
+
+.key.confirmar {
+  width: 100%;
+  background: linear-gradient(135deg, var(--verde-medio), var(--verde-vivo));
+  color: var(--blanco);
+  border: none;
+  border-radius: var(--radio-sm);
+  box-shadow: 0 4px 14px rgba(29,184,104,.35);
+  padding: 16px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--trans);
+}
+.key.confirmar:active { transform: scale(.97); }
+.key.confirmar:disabled {
+  background: var(--gris-300);
+  color: var(--gris-600);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+/* ── Timer ── */
+.timer-bar-wrap { margin: 10px 0 0; display: none; }
+.timer-label { font-size: 11px; color: var(--gris-600); margin-bottom: 5px; text-align: center; }
+.timer-bar-bg { background: var(--gris-100); border-radius: 99px; height: 5px; overflow: hidden; }
+.timer-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--verde-medio), var(--verde-vivo));
+  border-radius: 99px;
+  transition: width 1s linear;
+  width: 100%;
+}
+
+/* ── Divider ── */
+.divider {
+  display: flex; align-items: center; gap: 10px;
+  margin: 14px 0; color: var(--gris-300); font-size: 11px;
+}
+.divider::before, .divider::after { content:""; flex:1; height:1px; background:var(--gris-300); }
+
+/* ── Btn secundario ── */
+.btn {
+  width: 100%; padding: 12px;
+  border-radius: var(--radio-sm);
+  font-size: 13px; font-weight: 700;
+  cursor: pointer; transition: var(--trans);
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn-secondary {
+  background: var(--gris-100); color: var(--verde-oscuro);
+  border: 1.5px solid var(--gris-300); margin-top: 6px;
+}
+.btn-secondary:active { background: var(--gris-300); }
+.btn-install {
+  background: transparent; border: 1.5px solid var(--verde-vivo);
+  color: var(--verde-vivo); margin-top: 8px; display: none;
+}
+
+/* ── MEJORA 1: Overlay de confirmación animado ── */
+.confirm-overlay {
+  position: fixed; inset: 0; z-index: 999;
+  background: rgba(10,46,31,.92);
+  display: none;
+  align-items: center; justify-content: center;
+  flex-direction: column;
+  gap: 16px;
+}
+.confirm-overlay.show { display: flex; }
+.confirm-icon {
+  font-size: 90px;
+  animation: popIn .45s cubic-bezier(.17,.67,.3,1.4) forwards;
+  transform: scale(0);
+}
+@keyframes popIn {
+  from { transform: scale(0); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+.confirm-titulo {
+  font-size: 26px; font-weight: 800;
+  color: var(--blanco); text-align: center;
+  animation: fadeUp .4s ease .2s forwards; opacity: 0; transform: translateY(10px);
+}
+.confirm-sub {
+  font-size: 15px; color: rgba(255,255,255,.65);
+  text-align: center;
+  animation: fadeUp .4s ease .35s forwards; opacity: 0; transform: translateY(10px);
+}
+/* MEJORA 6: Avatar inicial en confirmación */
+.confirm-avatar {
+  width: 60px; height: 60px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 26px; font-weight: 800; color: var(--blanco);
+  margin-bottom: 4px;
+  animation: fadeUp .4s ease .15s forwards; opacity: 0; transform: translateY(10px);
+}
+.confirm-avatar.entrada { background: var(--verde-medio); }
+.confirm-avatar.salida  { background: #7c4a10; }
+
+@keyframes fadeUp {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Scanner ── */
+#reader { margin-top: 12px; border-radius: var(--radio-sm); overflow: hidden; background: #000; }
+#reader video { border-radius: var(--radio-sm); }
+
+/* ── Footer ── */
+.footer {
+  padding: 12px 20px 18px;
+  text-align: center; font-size: 10px;
+  color: rgba(255,255,255,.3);
+}
+</style>
+</head>
+<body>
+
+<!-- MEJORA 1: Overlay de confirmación -->
+<div class="confirm-overlay" id="confirmOverlay">
+  <div class="confirm-avatar" id="confirmAvatar">?</div>
+  <div class="confirm-icon" id="confirmIcon">✅</div>
+  <div class="confirm-titulo" id="confirmTitulo">Entrada registrada</div>
+  <div class="confirm-sub" id="confirmSub">Torre Norte · 08:32 AM</div>
+</div>
+
+<div class="app">
+
+  <!-- Header con reloj -->
+  <div class="header">
+    <img src="logo.png" alt="Habitat">
+    <div class="header-text">
+      <h1>Habitat Seguridad</h1>
+    </div>
+    <!-- MEJORA 7: Reloj -->
+    <div style="text-align:right">
+      <div class="header-clock" id="reloj">--:--</div>
+      <div class="header-clock-date" id="relojFecha">---</div>
+    </div>
+  </div>
+
+  <!-- Edificio -->
+  <div class="edificio-card valido" id="edificioCard">
+    <div class="edificio-icon" id="edificioIcon">🏢</div>
+    <div class="edificio-info">
+      <h2 id="edificioNombre">Validando...</h2>
+      <span id="edificioSub">Leyendo código QR</span>
+    </div>
+  </div>
+
+  <!-- Card principal -->
+  <div class="card">
+
+    <!-- MEJORA 2: Próximo registro -->
+    <div class="proximo-wrap">
+      <span class="proximo-label">Próximo registro:</span>
+      <span class="tipo-chip desconocido" id="proximoChip">⏳ Detectando...</span>
+    </div>
+
+    <!-- Estado -->
+    <div class="estado idle" id="estado">Ingresa tu cédula para registrarte</div>
+
+    <!-- Input nativo de cédula -->
+    <div class="cedula-display" id="cedulaDisplay">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+        <circle cx="12" cy="7" r="4"/>
+      </svg>
+      <input
+        class="cedula-input"
+        id="cedulaInput"
+        type="tel"
+        inputmode="numeric"
+        pattern="[0-9]*"
+        autocomplete="off"
+        maxlength="12"
+        placeholder="Ej. 1234567890"
+      >
+    </div>
+
+    <button class="key confirmar" id="btnConfirmar" onclick="registrar()" style="margin-bottom:14px">
+      ✔ &nbsp; Registrar entrada / salida
+    </button>
+
+    <!-- Timer -->
+    <div class="timer-bar-wrap" id="timerWrap">
+      <div class="timer-label" id="timerLabel">Próximo registro disponible en 5:00</div>
+      <div class="timer-bar-bg"><div class="timer-bar" id="timerBar"></div></div>
+    </div>
+
+    <div class="divider">opciones</div>
+
+    <button class="btn btn-secondary" id="btnCamara" onclick="abrirCamara()">
+      📷 &nbsp; Escanear otro QR
+    </button>
+    <button class="btn btn-install" id="installBtn">
+      📲 &nbsp; Instalar app
+    </button>
+
+    <div id="reader"></div>
+
+  </div><!-- /card -->
+
+  <div class="footer">Habitat Seguridad &copy; 2025</div>
+</div>
+
+<script>
+// ── Config ───────────────────────────────────────
+const BLOQUEO_SEG = 300;
+
+// ── Device ID ────────────────────────────────────
+function getDeviceId() {
+  let id = localStorage.getItem("device_id");
+  if (!id) { id = crypto.randomUUID(); localStorage.setItem("device_id", id); }
+  return id;
+}
+
+// ── URL ──────────────────────────────────────────
+const params = new URLSearchParams(location.search);
+let codigo = (params.get("edificio") || "")
+  .toLowerCase().trim().replace(/\s+/g,"").replace(/[^a-z0-9]/g,"");
+let nombreEdificio = "";
+
+// ── MEJORA 7: Reloj en tiempo real ───────────────
+function actualizarReloj() {
+  const ahora = new Date();
+  const h = ahora.getHours().toString().padStart(2,"0");
+  const m = ahora.getMinutes().toString().padStart(2,"0");
+  document.getElementById("reloj").textContent = h + ":" + m;
+  const dias  = ["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
+  const meses = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+  document.getElementById("relojFecha").textContent =
+    dias[ahora.getDay()] + " " + ahora.getDate() + " " + meses[ahora.getMonth()];
+}
+actualizarReloj();
+setInterval(actualizarReloj, 1000);
+
+// ── Edificio ─────────────────────────────────────
+let qrExpiroTimer = null;
+const QR_VALIDEZ_SEG = 60;
+
+async function cargarEdificio() {
+  if (!codigo) { setEdificio("Sin edificio", "Escanea un QR primero", false); return; }
+  try {
+    const r  = await fetch("/admin/edificios");
+    const ds = await r.json();
+    const ed = ds.find(e => (e.codigo_qr||"").toLowerCase().replace(/\s+/g,"") === codigo);
+    if (ed) {
+      nombreEdificio = ed.nombre;
+      setEdificio(ed.nombre, "Edificio verificado ✔", true);
+      habilitarFormulario(true);
+      iniciarExpiracionQR();
+    } else {
+      setEdificio("QR no reconocido", "Código inválido", false);
+      setEstado("Este QR no pertenece a ningún edificio.", "error");
+      habilitarFormulario(false);
+    }
+  } catch { setEdificio("Sin conexión", "Reintentando...", false); }
+}
+
+// ── MEJORA SEGURIDAD: el QR vence a los 60s. Si la persona no completa
+// el registro en ese tiempo, debe volver a escanear el código. ─────────
+function iniciarExpiracionQR() {
+  clearTimeout(qrExpiroTimer);
+  qrExpiroTimer = setTimeout(() => {
+    codigo = "";
+    nombreEdificio = "";
+    setEdificio("QR expirado", "Vuelve a escanear el código", false);
+    setEstado("⏳ El código QR expiró. Escanea de nuevo para registrarte.", "warning");
+    habilitarFormulario(false);
+  }, QR_VALIDEZ_SEG * 1000);
+}
+
+function habilitarFormulario(activo) {
+  const input = document.getElementById("cedulaInput");
+  const btn   = document.getElementById("btnConfirmar");
+  input.disabled = !activo;
+  if (!activo) {
+    btn.disabled = true;
+  } else {
+    btn.disabled = (input.value.trim().length < 5);
+  }
+}
+
+function setEdificio(nombre, sub, valido) {
+  document.getElementById("edificioNombre").textContent = nombre;
+  document.getElementById("edificioSub").textContent    = sub;
+  document.getElementById("edificioCard").className = "edificio-card " + (valido ? "valido" : "invalido");
+  document.getElementById("edificioIcon").textContent   = valido ? "🏢" : "❌";
+}
+
+function setEstado(msg, tipo = "idle") {
+  const el = document.getElementById("estado");
+  el.textContent = msg;
+  el.className   = "estado " + tipo;
+}
+
+// ── Input nativo de cédula ────────────────────────
+const cedulaInputEl = document.getElementById("cedulaInput");
+cedulaInputEl.addEventListener("input", () => {
+  cedulaInputEl.value = cedulaInputEl.value.replace(/\D/g, "").slice(0, 12);
+  const btn = document.getElementById("btnConfirmar");
+  if (!cedulaInputEl.disabled) {
+    btn.disabled = (cedulaInputEl.value.trim().length < 5);
+  }
+  actualizarProximoTipo();
+});
+cedulaInputEl.addEventListener("keydown", e => { if (e.key === "Enter") registrar(); });
+
+function limpiar() {
+  cedulaInputEl.value = "";
+  document.getElementById("btnConfirmar").disabled = true;
+}
+// ── Próximo tipo (chip informativo, lo confirma el servidor) ─────
+function actualizarProximoTipo() {
+  const valor = cedulaInputEl.value.trim();
+  if (!valor || valor.length < 5) {
+    setChip("desconocido", "⏳ Ingresa tu cédula");
+    return;
+  }
+  setChip("desconocido", "✔ Listo para registrar");
+}
+
+function setChip(tipo, texto) {
+  const chip = document.getElementById("proximoChip");
+  chip.textContent = texto;
+  chip.className   = "tipo-chip " + tipo;
+}
+
+// ── Bloqueo persistente ───────────────────────────
+function tiempoRestanteSeg() {
+  const ts = parseInt(localStorage.getItem("bloqueo_hasta") || "0", 10);
+  return Math.max(0, Math.ceil((ts - Date.now()) / 1000));
+}
+function iniciarBloqueo() {
+  localStorage.setItem("bloqueo_hasta", (Date.now() + BLOQUEO_SEG * 1000).toString());
+  arrancarTimer();
+}
+
+function arrancarTimer() {
+  const btn       = document.getElementById("btnConfirmar");
+  const wrap      = document.getElementById("timerWrap");
+  const label     = document.getElementById("timerLabel");
+  const bar       = document.getElementById("timerBar");
+  const input     = document.getElementById("cedulaInput");
+
+  const tick = () => {
+    const r = tiempoRestanteSeg();
+    if (r <= 0) {
+      btn.disabled = input.value.trim().length < 5;
+      btn.textContent = "✔  Registrar entrada / salida";
+      input.disabled = false;
+      wrap.style.display = "none";
+      bar.style.width    = "0%";
+      return;
+    }
+    const min = Math.floor(r / 60);
+    const seg = r % 60;
+    btn.disabled    = true;
+    btn.textContent = `⏳ Disponible en ${min}:${seg.toString().padStart(2,"0")}`;
+    input.disabled = true;
+    wrap.style.display = "block";
+    label.textContent  = `Próximo registro en ${min}:${seg.toString().padStart(2,"0")}`;
+    bar.style.width    = (r / BLOQUEO_SEG * 100) + "%";
+    setTimeout(tick, 1000);
+  };
+  tick();
+}
+
+// ── MEJORA 1: Overlay de confirmación animado ─────
+function mostrarConfirmacion(data) {
+  const esEnt   = data.tipo === "Entrada";
+  const overlay = document.getElementById("confirmOverlay");
+  const icon    = document.getElementById("confirmIcon");
+  const titulo  = document.getElementById("confirmTitulo");
+  const sub     = document.getElementById("confirmSub");
+  const avatar  = document.getElementById("confirmAvatar");
+
+  // MEJORA 6: Avatar con inicial
+  const nombre  = data.nombre || cedulaInputEl.value.trim();
+  const inicial = nombre.charAt(0).toUpperCase();
+  avatar.textContent = inicial;
+  avatar.className   = "confirm-avatar " + (esEnt ? "entrada" : "salida");
+
+  icon.textContent   = esEnt ? "✅" : "👋";
+  titulo.textContent = esEnt ? "Entrada registrada" : "Salida registrada";
+
+  const ahora = new Date();
+  const hora  = ahora.toLocaleTimeString("es-CO",{hour:"2-digit",minute:"2-digit"});
+  sub.textContent  = nombreEdificio + " · " + hora;
+
+  // Reset animaciones
+  [icon, titulo, sub, avatar].forEach(el => {
+    el.style.animation = "none";
+    el.offsetHeight; // reflow
+    el.style.animation = "";
+  });
+
+  overlay.classList.add("show");
+  setTimeout(() => overlay.classList.remove("show"), 2800);
+}
+
+// ── Registro ──────────────────────────────────────
+async function registrar() {
+  const cedulaVal = cedulaInputEl.value.trim();
+  if (tiempoRestanteSeg() > 0 || cedulaVal.length < 5) return;
+
+  const btn = document.getElementById("btnConfirmar");
+  btn.disabled    = true;
+  btn.textContent = "Registrando...";
+
+  try {
+    const r    = await fetch("/registro", {
+      method : "POST",
+      headers: { "Content-Type": "application/json" },
+      body   : JSON.stringify({ cedula: cedulaVal, codigoEdificio: codigo, deviceId: getDeviceId() }),
+    });
+    const data = await r.json();
+
+    if (r.ok) {
+      // Animación de confirmación
+      mostrarConfirmacion(data);
+      setEstado(data.mensaje, "ok");
+      iniciarBloqueo();
+      limpiar();
+      actualizarProximoTipo();
+      iniciarExpiracionQR(); // se vuelve a contar 60s para el siguiente registro
+
+    } else if (r.status === 429) {
+      setEstado(data.mensaje, "warning");
+      btn.disabled    = false;
+      btn.textContent = "✔  Registrar entrada / salida";
+      setTimeout(() => setEstado("Ingresa tu cédula para registrarte", "idle"), 6000);
+    } else {
+      setEstado(data.mensaje, "error");
+      btn.disabled    = (cedulaInputEl.value.trim().length < 5);
+      btn.textContent = "✔  Registrar entrada / salida";
+      setTimeout(() => setEstado("Ingresa tu cédula para registrarte", "idle"), 5000);
+    }
+  } catch {
+    setEstado("Sin conexión. Intenta de nuevo.", "error");
+    btn.disabled    = (cedulaInputEl.value.trim().length < 5);
+    btn.textContent = "✔  Registrar entrada / salida";
+  }
+}
+
+// ── Cámara QR ─────────────────────────────────────
+let scanner = null;
+async function abrirCamara() {
+  if (scanner) {
+    try { await scanner.stop(); } catch {}
+    scanner = null;
+    document.getElementById("reader").innerHTML = "";
+    document.getElementById("btnCamara").textContent = "📷  Escanear otro QR";
+    return;
+  }
+  scanner = new Html5Qrcode("reader");
+  try {
+    const devices    = await Html5Qrcode.getCameras();
+    if (!devices?.length) { alert("No hay cámaras disponibles"); return; }
+    const back       = devices.find(d => /back|rear|environment|trasera/i.test(d.label));
+    const cameraId   = back ? back.id : devices[devices.length - 1].id;
+    await scanner.start(cameraId, { fps:10, qrbox:220, aspectRatio:1 }, text => {
+      scanner.stop().catch(()=>{});
+      scanner = null;
+      const clean = text.toLowerCase()
+        .replace(/^https?:\/\/.*[?&]edificio=/,"")
+        .replace(/[^a-z0-9]/g,"");
+      location.href = "/?edificio=" + clean;
+    });
+    document.getElementById("btnCamara").textContent = "✖  Cerrar cámara";
+  } catch { alert("Error accediendo a la cámara ❌"); }
+}
+
+// ── PWA Install ───────────────────────────────────
+let deferredPrompt;
+window.addEventListener("beforeinstallprompt", e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById("installBtn").style.display = "flex";
+});
+document.getElementById("installBtn").addEventListener("click", async () => {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  await deferredPrompt.userChoice;
+  deferredPrompt = null;
+  document.getElementById("installBtn").style.display = "none";
+});
+
+// ── Service Worker ────────────────────────────────
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(()=>{}));
+}
+
+// ── Init ──────────────────────────────────────────
+habilitarFormulario(false);
+cargarEdificio();
+if (tiempoRestanteSeg() > 0) arrancarTimer();
+</script>
+</body>
+</html>
