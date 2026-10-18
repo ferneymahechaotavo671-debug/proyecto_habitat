@@ -557,6 +557,214 @@ app.get("/admin/exportar-excel", validarAdmin, asyncHandler(async (req, res) => 
 }));
 
 // ─────────────────────────────────────────
+// LUGARES DE VIGILANCIA
+// ─────────────────────────────────────────
+
+// Listar lugares (público para que el QR pueda validarse)
+app.get("/lugares", asyncHandler(async (req, res) => {
+  const [rows] = await pool.execute(
+    "SELECT id, nombre, codigo_qr, edificio_id FROM lugares WHERE activo=1 ORDER BY nombre ASC"
+  );
+  res.json(rows);
+}));
+
+// Admin: listar lugares con nombre de edificio
+app.get("/admin/lugares", validarAdmin, asyncHandler(async (req, res) => {
+  const [rows] = await pool.execute(`
+    SELECT l.id, l.nombre, l.codigo_qr, l.activo,
+           e.nombre AS edificio, e.id AS edificio_id
+    FROM lugares l
+    JOIN edificios e ON l.edificio_id = e.id
+    ORDER BY e.nombre ASC, l.nombre ASC
+  `);
+  res.json(rows);
+}));
+
+// Crear lugar
+app.post("/admin/crear-lugar", validarAdmin, asyncHandler(async (req, res) => {
+  const { nombre, edificio_id } = req.body;
+  if (!nombre?.trim() || !edificio_id) {
+    return res.status(400).json({ mensaje: "Datos incompletos" });
+  }
+  const codigo_qr = "lugar_" + normalizar(nombre) + "_" + edificio_id + "_" + Date.now();
+  await pool.execute(
+    "INSERT INTO lugares (nombre, codigo_qr, edificio_id) VALUES (?,?,?)",
+    [nombre.trim(), codigo_qr, edificio_id]
+  );
+  await auditLog("crear_lugar", { nombre, edificio_id, codigo_qr });
+  res.json({ ok: true, codigo_qr });
+}));
+
+// Editar lugar
+app.post("/admin/editar-lugar", validarAdmin, asyncHandler(async (req, res) => {
+  const { id, nombre, activo } = req.body;
+  await pool.execute(
+    "UPDATE lugares SET nombre=?, activo=? WHERE id=?",
+    [nombre, activo ?? 1, id]
+  );
+  await auditLog("editar_lugar", { id, nombre });
+  res.json({ ok: true });
+}));
+
+// Eliminar lugar
+app.post("/admin/eliminar-lugar", validarAdmin, asyncHandler(async (req, res) => {
+  await pool.execute("UPDATE lugares SET activo=0 WHERE id=?", [req.body.id]);
+  await auditLog("eliminar_lugar", { id: req.body.id });
+  res.json({ ok: true });
+}));
+
+// ─────────────────────────────────────────
+// REGISTRO DE RONDA (escaneo de lugar — sin cédula)
+// Se identifica al vigilante por su deviceId
+// ─────────────────────────────────────────
+app.post("/ronda", asyncHandler(async (req, res) => {
+  const codigoLugar = req.body.codigoLugar?.toString().trim();
+  const deviceId    = req.body.deviceId?.toString().trim();
+
+  if (!codigoLugar || !deviceId) {
+    return res.status(400).json({ mensaje: "Datos incompletos ❌" });
+  }
+
+  // Buscar lugar
+  const [[lugar]] = await pool.execute(
+    `SELECT l.*, e.nombre AS edificio_nombre
+     FROM lugares l JOIN edificios e ON l.edificio_id=e.id
+     WHERE l.codigo_qr=? AND l.activo=1`,
+    [codigoLugar]
+  );
+  if (!lugar) return res.status(404).json({ mensaje: "Lugar no reconocido ❌" });
+
+  // Identificar vigilante por deviceId (busca en dispositivos autorizados)
+  const [devs] = await pool.execute(
+    `SELECT d.cedula, u.nombre, IFNULL(r.nombre,'usuario') AS rol
+     FROM dispositivos d
+     JOIN usuarios u ON d.cedula = u.cedula
+     LEFT JOIN roles r ON u.rol_id = r.id
+     WHERE d.device_id=? AND d.autorizado=1
+     LIMIT 1`,
+    [deviceId]
+  );
+
+  // Si el dispositivo no está registrado, registrar la ronda igual pero sin nombre
+  const cedula  = devs[0]?.cedula  || "desconocido";
+  const nombre  = devs[0]?.nombre  || "Vigilante";
+
+  // Usar la hora local del dispositivo si viene (escaneo offline)
+  // Validar que sea una fecha ISO válida y no más de 7 días atrás
+  let fechaHora = null;
+  if (req.body.fecha_hora_local) {
+    const d = new Date(req.body.fecha_hora_local);
+    const hace7dias = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    if (!isNaN(d.getTime()) && d >= hace7dias && d <= new Date()) {
+      fechaHora = d.toISOString().slice(0, 19).replace("T", " ");
+    }
+  }
+
+  // Guardar ronda (con fecha del dispositivo si aplica, o UTC ahora)
+  if (fechaHora) {
+    await pool.execute(
+      "INSERT INTO rondas (cedula, nombre, lugar_id, lugar_nombre, edificio_id, edificio, fecha_hora) VALUES (?,?,?,?,?,?,?)",
+      [cedula, nombre, lugar.id, lugar.nombre, lugar.edificio_id, lugar.edificio_nombre, fechaHora]
+    );
+  } else {
+    await pool.execute(
+      "INSERT INTO rondas (cedula, nombre, lugar_id, lugar_nombre, edificio_id, edificio) VALUES (?,?,?,?,?,?)",
+      [cedula, nombre, lugar.id, lugar.nombre, lugar.edificio_id, lugar.edificio_nombre]
+    );
+  }
+
+  await auditLog("ronda_qr", { cedula, lugar: lugar.nombre, edificio: lugar.edificio_nombre }, cedula);
+
+  res.json({
+    mensaje : "Ronda registrada ✅",
+    lugar   : lugar.nombre,
+    edificio: lugar.edificio_nombre,
+    vigilante: nombre,
+  });
+}));
+
+// ─────────────────────────────────────────
+// REGISTROS DE RONDAS (admin)
+// ─────────────────────────────────────────
+app.get("/admin/rondas", validarAdmin, asyncHandler(async (req, res) => {
+  const conditions = ["1=1"];
+  const params     = [];
+
+  if (req.query.edificio_id) {
+    const eid = parseInt(req.query.edificio_id, 10);
+    if (!isNaN(eid)) { conditions.push("edificio_id=?"); params.push(eid); }
+  }
+  if (req.query.cedula) {
+    const ced = req.query.cedula.replace(/\D/g, "");
+    if (ced) { conditions.push("cedula=?"); params.push(ced); }
+  }
+  if (req.query.lugar_id) {
+    const lid = parseInt(req.query.lugar_id, 10);
+    if (!isNaN(lid)) { conditions.push("lugar_id=?"); params.push(lid); }
+  }
+  if (req.query.fecha_desde) {
+    conditions.push("fecha_hora >= ?");
+    params.push(req.query.fecha_desde + " 00:00:00");
+  }
+  if (req.query.fecha_hasta) {
+    conditions.push("fecha_hora <= ?");
+    params.push(req.query.fecha_hasta + " 23:59:59");
+  }
+
+  const limit  = Math.min(parseInt(req.query.limit  || "100", 10), 500);
+  const offset = parseInt(req.query.offset || "0", 10);
+  const where  = conditions.join(" AND ");
+
+  const [pagina] = await pool.query(
+    `SELECT * FROM rondas WHERE ${where} ORDER BY fecha_hora DESC LIMIT ${limit} OFFSET ${offset}`,
+    params
+  );
+  const [[{ total }]] = await pool.execute(
+    `SELECT COUNT(*) AS total FROM rondas WHERE ${where}`,
+    params
+  );
+
+  res.json({ rondas: pagina, total, limit, offset });
+}));
+
+// Exportar rondas Excel
+app.get("/admin/exportar-rondas", validarAdmin, asyncHandler(async (req, res) => {
+  const conditions = ["1=1"];
+  const params     = [];
+  if (req.query.edificio_id) { conditions.push("edificio_id=?"); params.push(parseInt(req.query.edificio_id,10)); }
+  if (req.query.cedula)      { const c=req.query.cedula.replace(/\D/g,""); if(c){conditions.push("cedula=?");params.push(c);} }
+  if (req.query.fecha_desde) { conditions.push("fecha_hora >= ?"); params.push(req.query.fecha_desde+" 00:00:00"); }
+  if (req.query.fecha_hasta) { conditions.push("fecha_hora <= ?"); params.push(req.query.fecha_hasta+" 23:59:59"); }
+
+  const [rows] = await pool.execute(
+    `SELECT * FROM rondas WHERE ${conditions.join(" AND ")} ORDER BY fecha_hora DESC`,
+    params
+  );
+
+  const wb    = new ExcelJS.Workbook();
+  const sheet = wb.addWorksheet("Rondas");
+  sheet.columns = [
+    { header:"ID",          key:"id",           width:8  },
+    { header:"Vigilante",   key:"nombre",        width:28 },
+    { header:"Cédula",      key:"cedula",        width:18 },
+    { header:"Lugar",       key:"lugar_nombre",  width:30 },
+    { header:"Edificio",    key:"edificio",      width:24 },
+    { header:"Fecha (UTC)", key:"fecha_hora",    width:22 },
+  ];
+  sheet.getRow(1).eachCell(cell => {
+    cell.fill = { type:"pattern", pattern:"solid", fgColor:{ argb:"FF1F7A63" } };
+    cell.font = { bold:true, color:{ argb:"FFFFFFFF" } };
+    cell.border = { bottom:{ style:"thin" } };
+  });
+  rows.forEach(r => sheet.addRow(r));
+
+  res.setHeader("Content-Type","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  res.setHeader("Content-Disposition",`attachment; filename="rondas-${Date.now()}.xlsx"`);
+  await wb.xlsx.write(res);
+  res.end();
+}));
+
+// ─────────────────────────────────────────
 // CRON — MEJORA #5: node-cron cada hora en punto
 // MEJORA: lógica corregida (entrada sin salida posterior)
 // ─────────────────────────────────────────
@@ -613,6 +821,34 @@ async function initDB() {
       )
     `);
     console.log("✅ Tabla audit_log lista");
+
+    // ── NUEVO: Lugares de vigilancia por edificio ──
+    await pool.execute(`
+      CREATE TABLE IF NOT EXISTS lugares (
+        id          INT AUTO_INCREMENT PRIMARY KEY,
+        nombre      VARCHAR(120) NOT NULL,
+        codigo_qr   VARCHAR(120) NOT NULL UNIQUE,
+        edificio_id INT NOT NULL,
+        activo      TINYINT(1) DEFAULT 1,
+        creado      DATETIME DEFAULT UTC_TIMESTAMP()
+      )
+    `);
+    console.log("✅ Tabla lugares lista");
+
+    // ── NUEVO: Rondas de vigilancia ──
+    await pool.execute(`
+      CREATE TABLE IF NOT EXISTS rondas (
+        id          INT AUTO_INCREMENT PRIMARY KEY,
+        cedula      VARCHAR(30) NOT NULL,
+        nombre      VARCHAR(120),
+        lugar_id    INT NOT NULL,
+        lugar_nombre VARCHAR(120),
+        edificio_id  INT NOT NULL,
+        edificio     VARCHAR(120),
+        fecha_hora   DATETIME DEFAULT UTC_TIMESTAMP()
+      )
+    `);
+    console.log("✅ Tabla rondas lista");
   } catch (err) {
     console.error("⚠️ No se pudo crear audit_log:", err.message);
   }

@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Habitat · Admin</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
 *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
 :root {
@@ -372,7 +373,10 @@ tbody tr.detalle-row td {
     <div class="nav-group">
       <div class="nav-label">Principal</div>
       <button class="nav-item active" data-tip="Registros" onclick="showSection('registros',this)">
-        <span class="nav-icon">📋</span><span class="nav-text">Registros</span>
+        <span class="nav-icon">📋</span><span class="nav-text">Registros acceso</span>
+      </button>
+      <button class="nav-item" data-tip="Rondas" onclick="showSection('rondas',this)">
+        <span class="nav-icon">🔍</span><span class="nav-text">Rondas vigilancia</span>
       </button>
       <button class="nav-item" data-tip="Dispositivos" onclick="showSection('dispositivos',this)">
         <span class="nav-icon">📱</span><span class="nav-text">Dispositivos</span>
@@ -387,11 +391,17 @@ tbody tr.detalle-row td {
       <button class="nav-item" data-tip="Nuevo edificio" onclick="showModal('modalEdificio')">
         <span class="nav-icon">🏢</span><span class="nav-text">Nuevo edificio</span>
       </button>
+      <button class="nav-item" data-tip="Lugares" onclick="showSection('lugares',this)">
+        <span class="nav-icon">📍</span><span class="nav-text">Lugares QR</span>
+      </button>
     </div>
 
     <div class="sidebar-bottom">
-      <button class="nav-item" data-tip="Exportar Excel" onclick="exportarExcel()">
-        <span class="nav-icon">📥</span><span class="nav-text">Exportar Excel</span>
+      <button class="nav-item" data-tip="Exportar accesos" onclick="exportarExcel()">
+        <span class="nav-icon">📥</span><span class="nav-text">Exportar accesos</span>
+      </button>
+      <button class="nav-item" data-tip="Exportar rondas" onclick="exportarRondas()">
+        <span class="nav-icon">📤</span><span class="nav-text">Exportar rondas</span>
       </button>
       <button class="nav-item" data-tip="Actualizar" onclick="cargar()">
         <span class="nav-icon">🔄</span><span class="nav-text">Actualizar</span>
@@ -543,6 +553,111 @@ tbody tr.detalle-row td {
         </div>
       </div>
 
+      <!-- SECCIÓN RONDAS -->
+      <div id="sectionRondas" style="display:none">
+
+        <!-- Stats rondas -->
+        <div class="stats-grid" style="grid-template-columns:repeat(3,1fr)">
+          <div class="stat-card verde">
+            <div class="stat-top"><div class="stat-label">Total rondas hoy</div></div>
+            <div class="stat-value" id="statRondasHoy">—</div>
+            <div class="stat-meta"><span class="stat-ultimo" id="ultimaRonda">Última: —</span></div>
+          </div>
+          <div class="stat-card azul">
+            <div class="stat-top"><div class="stat-label">Lugares cubiertos</div></div>
+            <div class="stat-value" id="statLugaresCubiertos">—</div>
+            <div class="stat-meta"><span class="stat-ultimo" id="totalLugares">De — registrados</span></div>
+          </div>
+          <div class="stat-card rojo">
+            <div class="stat-top"><div class="stat-label">Lugares sin revisar</div></div>
+            <div class="stat-value" id="statLugaresFaltantes">—</div>
+            <div class="stat-meta"><span class="stat-ultimo">Hoy</span></div>
+          </div>
+        </div>
+
+        <!-- Filtros rondas -->
+        <div class="filters-bar" style="margin-top:16px">
+          <div class="filter-group">
+            <label>Edificio</label>
+            <select id="rFEdificio"><option value="">Todos</option></select>
+          </div>
+          <div class="filter-group">
+            <label>Cédula vigilante</label>
+            <input type="text" id="rFCedula" placeholder="Ej. 1234567890" inputmode="numeric">
+          </div>
+          <div class="filter-group">
+            <label>Desde</label>
+            <input type="date" id="rFDesde">
+          </div>
+          <div class="filter-group">
+            <label>Hasta</label>
+            <input type="date" id="rFHasta">
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-primary" onclick="cargarRondas()">🔎 Filtrar</button>
+            <button class="btn btn-outline" onclick="limpiarFiltrosRondas()">✖ Limpiar</button>
+          </div>
+        </div>
+
+        <!-- Tabla rondas -->
+        <div class="table-card">
+          <div class="table-header">
+            <h3>🔍 Rondas de vigilancia</h3>
+            <span class="table-info" id="tableInfoRondas">—</span>
+          </div>
+          <div class="table-wrap">
+            <table id="tablaRondas">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Vigilante</th>
+                  <th>Cédula</th>
+                  <th>Lugar revisado</th>
+                  <th>Edificio</th>
+                  <th>Fecha y hora</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyRondas">
+                <tr><td colspan="6" class="loading"><span class="spin"></span>Cargando...</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="pagination">
+            <span id="pagInfoRondas">—</span>
+            <div class="pag-btns">
+              <button class="pag-btn" id="btnPrevRondas" onclick="paginarRondas(-1)" disabled>← Anterior</button>
+              <button class="pag-btn" id="btnNextRondas" onclick="paginarRondas(1)"  disabled>Siguiente →</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECCIÓN LUGARES -->
+      <div id="sectionLugares" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+          <div>
+            <h3 style="font-size:18px;font-weight:700">📍 Lugares de vigilancia</h3>
+            <p style="font-size:13px;color:var(--gris-600);margin-top:2px">Cada lugar genera un QR único para que el vigilante escanee al revisar.</p>
+          </div>
+          <button class="btn btn-primary" onclick="showModal('modalLugar')">➕ Nuevo lugar</button>
+        </div>
+        <div class="table-card">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th><th>Nombre del lugar</th><th>Edificio</th>
+                  <th>Estado</th><th>Código QR</th><th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="tablaLugares">
+                <tr><td colspan="6" class="loading"><span class="spin"></span>Cargando...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
     </div><!-- /content -->
   </div><!-- /main -->
 </div><!-- /app -->
@@ -586,6 +701,45 @@ tbody tr.detalle-row td {
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('modalAgregarDev')">Cancelar</button>
       <button class="btn btn-primary" onclick="agregarDispManual()">Agregar y aprobar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal lugar -->
+<div class="modal-overlay" id="modalLugar">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>📍 Nuevo lugar de vigilancia</h3>
+      <button class="modal-close" onclick="closeModal('modalLugar')">✕</button>
+    </div>
+    <div class="form-group">
+      <label>Nombre del lugar</label>
+      <input type="text" id="lNombre" placeholder="Ej. Cuarto de bombas, Parqueadero, Azotea...">
+    </div>
+    <div class="form-group">
+      <label>Edificio</label>
+      <select id="lEdificio"><option value="">Selecciona edificio</option></select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modalLugar')">Cancelar</button>
+      <button class="btn btn-primary" onclick="crearLugar()">Crear y generar QR</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal QR lugar -->
+<div class="modal-overlay" id="modalQRLugar">
+  <div class="modal" style="text-align:center">
+    <div class="modal-header">
+      <h3>📲 QR del lugar</h3>
+      <button class="modal-close" onclick="closeModal('modalQRLugar')">✕</button>
+    </div>
+    <p style="font-size:14px;color:var(--gris-600);margin-bottom:16px" id="qrLugarNombre"></p>
+    <div id="qrLugarCanvas" style="display:flex;justify-content:center;margin-bottom:16px"></div>
+    <p style="font-size:11px;color:var(--gris-400);word-break:break-all" id="qrLugarUrl"></p>
+    <div class="modal-footer" style="justify-content:center">
+      <button class="btn btn-primary" onclick="imprimirQR()">🖨️ Imprimir</button>
+      <button class="btn btn-outline" onclick="closeModal('modalQRLugar')">Cerrar</button>
     </div>
   </div>
 </div>
@@ -644,22 +798,30 @@ function toggleSidebar() {
 
 // ── Secciones ─────────────────────────────────────
 function showSection(id, el) {
-  document.getElementById("sectionRegistros").style.display   = id==="registros"    ? "block" : "none";
-  document.getElementById("sectionDispositivos").style.display= id==="dispositivos" ? "block" : "none";
+  ["sectionRegistros","sectionDispositivos","sectionRondas","sectionLugares"].forEach(s => {
+    document.getElementById(s).style.display = "none";
+  });
+  document.getElementById("section" + id.charAt(0).toUpperCase() + id.slice(1)).style.display = "block";
   document.querySelectorAll(".nav-item").forEach(b => b.classList.remove("active"));
   if (el) el.classList.add("active");
-  document.getElementById("topbarTitle").textContent = id==="registros" ? "Registros" : "Dispositivos";
+  const titles = { registros:"Registros de acceso", dispositivos:"Dispositivos",
+                   rondas:"Rondas de vigilancia", lugares:"Lugares QR" };
+  document.getElementById("topbarTitle").textContent = titles[id] || id;
   if (id==="dispositivos") cargarDispositivos();
+  if (id==="rondas")       cargarRondas();
+  if (id==="lugares")      cargarLugares();
 }
 
 // ── Edificios ─────────────────────────────────────
 async function cargarEdificios() {
   const r  = await fetch("/admin/edificios", {headers:{Authorization:PASS}});
   const ds = await r.json();
-  ["fEdificio","dEdificio"].forEach(sid => {
+  ["fEdificio","dEdificio","lEdificio","rFEdificio"].forEach(sid => {
     const sel = document.getElementById(sid);
     if (!sel) return;
-    const base = sid==="dEdificio" ? `<option value="todos">Todos los edificios</option>` : `<option value="">Todos</option>`;
+    const base = sid==="dEdificio"
+      ? `<option value="todos">Todos los edificios</option>`
+      : `<option value="">Todos</option>`;
     sel.innerHTML = base + ds.map(e=>`<option value="${e.id}">${e.nombre}</option>`).join("");
   });
 }
@@ -1061,6 +1223,222 @@ function toast(msg) {
   el.textContent=msg; el.classList.add("show");
   clearTimeout(toastTimer);
   toastTimer=setTimeout(()=>el.classList.remove("show"),3000);
+}
+
+// ── RONDAS ────────────────────────────────────────
+let offsetRondas = 0;
+let totalRondas  = 0;
+
+async function cargarRondas() {
+  const eid   = document.getElementById("rFEdificio")?.value || "";
+  const ced   = document.getElementById("rFCedula")?.value.replace(/\D/g,"") || "";
+  const desde = document.getElementById("rFDesde")?.value || "";
+  const hasta = document.getElementById("rFHasta")?.value || "";
+
+  let url = `/admin/rondas?limit=${LIMIT}&offset=${offsetRondas}`;
+  if (eid)   url += `&edificio_id=${eid}`;
+  if (ced)   url += `&cedula=${ced}`;
+  if (desde) url += `&fecha_desde=${desde}`;
+  if (hasta) url += `&fecha_hasta=${hasta}`;
+
+  document.getElementById("tbodyRondas").innerHTML =
+    `<tr><td colspan="6" class="loading"><span class="spin"></span>Cargando...</td></tr>`;
+
+  const r = await fetch(url, { headers:{ Authorization:PASS } });
+  const d = await r.json();
+  totalRondas = d.total || 0;
+  const rondas = d.rondas || [];
+
+  // Stats
+  const hoy = new Date().toISOString().slice(0,10);
+  const rondasHoy = rondas.filter(r => (r.fecha_hora||"").toString().slice(0,10) === hoy);
+  document.getElementById("statRondasHoy").textContent = rondasHoy.length;
+
+  const lugaresHoy = new Set(rondasHoy.map(r => r.lugar_id));
+  document.getElementById("statLugaresCubiertos").textContent = lugaresHoy.size;
+
+  // Fetch total lugares para el edificio filtrado
+  const todosLugares = await fetch("/admin/lugares", { headers:{ Authorization:PASS } });
+  const lugaresData  = await todosLugares.json();
+  const lugaresEdif  = eid ? lugaresData.filter(l => l.edificio_id == eid) : lugaresData;
+  document.getElementById("totalLugares").textContent = `De ${lugaresEdif.length} registrados`;
+  document.getElementById("statLugaresFaltantes").textContent =
+    Math.max(0, lugaresEdif.length - lugaresHoy.size);
+
+  const ultima = rondas[0];
+  document.getElementById("ultimaRonda").textContent = ultima
+    ? "Última: " + new Date(ultima.fecha_hora).toLocaleTimeString("es-CO",{hour:"2-digit",minute:"2-digit"})
+    : "Sin rondas";
+
+  // Tabla
+  if (!rondas.length) {
+    document.getElementById("tbodyRondas").innerHTML =
+      `<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--gris-400)">Sin rondas registradas</td></tr>`;
+  } else {
+    document.getElementById("tbodyRondas").innerHTML = rondas.map((r,i) => {
+      const fecha = new Date(r.fecha_hora).toLocaleString("es-CO",{
+        day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"
+      });
+      return `<tr>
+        <td style="color:var(--gris-400);font-size:12px">#${r.id}</td>
+        <td style="font-weight:600">${r.nombre||"—"}</td>
+        <td><span class="cedula-link" onclick="verPerfil('${r.cedula}')">${r.cedula}</span></td>
+        <td><span style="background:#f0fdf4;color:#166534;padding:3px 10px;border-radius:99px;font-size:12px;font-weight:700">📍 ${r.lugar_nombre||"—"}</span></td>
+        <td>${r.edificio||"—"}</td>
+        <td style="font-size:12px;color:var(--gris-600)">${fecha}</td>
+      </tr>`;
+    }).join("");
+  }
+
+  // Paginación
+  const d1 = offsetRondas+1, d2 = Math.min(offsetRondas+LIMIT, totalRondas);
+  document.getElementById("tableInfoRondas").textContent = `${d1}–${d2} de ${totalRondas}`;
+  document.getElementById("pagInfoRondas").textContent =
+    `Página ${Math.floor(offsetRondas/LIMIT)+1} de ${Math.ceil(totalRondas/LIMIT)||1}`;
+  document.getElementById("btnPrevRondas").disabled = offsetRondas <= 0;
+  document.getElementById("btnNextRondas").disabled = offsetRondas+LIMIT >= totalRondas;
+}
+
+function paginarRondas(dir) { offsetRondas = Math.max(0, offsetRondas+dir*LIMIT); cargarRondas(); }
+function limpiarFiltrosRondas() {
+  ["rFEdificio","rFCedula","rFDesde","rFHasta"].forEach(id => {
+    const el=document.getElementById(id); if(el) el.value="";
+  });
+  offsetRondas=0; cargarRondas();
+}
+
+async function exportarRondas() {
+  toast("⏳ Generando archivo...");
+  const eid   = document.getElementById("rFEdificio")?.value||"";
+  const ced   = document.getElementById("rFCedula")?.value.replace(/\D/g,"")||"";
+  const desde = document.getElementById("rFDesde")?.value||"";
+  const hasta = document.getElementById("rFHasta")?.value||"";
+  let url = "/admin/exportar-rondas?";
+  if (eid)   url += `edificio_id=${eid}&`;
+  if (ced)   url += `cedula=${ced}&`;
+  if (desde) url += `fecha_desde=${desde}&`;
+  if (hasta) url += `fecha_hasta=${hasta}`;
+  const r = await fetch(url, {headers:{Authorization:PASS}});
+  if (!r.ok) { toast("❌ Error exportando"); return; }
+  const blob = await r.blob();
+  const link = document.createElement("a");
+  link.href  = URL.createObjectURL(blob);
+  link.download = `rondas-habitat-${new Date().toISOString().slice(0,10)}.xlsx`;
+  link.click();
+  toast("✅ Excel de rondas descargado");
+}
+
+// ── LUGARES ───────────────────────────────────────
+async function cargarLugares() {
+  document.getElementById("tablaLugares").innerHTML =
+    `<tr><td colspan="6" class="loading"><span class="spin"></span>Cargando...</td></tr>`;
+  const r  = await fetch("/admin/lugares", { headers:{ Authorization:PASS } });
+  const ds = await r.json();
+  if (!ds.length) {
+    document.getElementById("tablaLugares").innerHTML =
+      `<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--gris-400)">
+        Sin lugares registrados. Crea el primero con el botón ➕.
+      </td></tr>`;
+    return;
+  }
+  document.getElementById("tablaLugares").innerHTML = ds.map(l => {
+    const badge = l.activo
+      ? `<span class="badge badge-ok">✅ Activo</span>`
+      : `<span class="badge badge-pend">⏸ Inactivo</span>`;
+    const qrUrl = `${location.origin}/?lugar=${encodeURIComponent(l.codigo_qr)}`;
+    return `<tr>
+      <td style="color:var(--gris-400);font-size:12px">#${l.id}</td>
+      <td style="font-weight:600">📍 ${l.nombre}</td>
+      <td>${l.edificio||"—"}</td>
+      <td>${badge}</td>
+      <td style="font-size:11px;color:var(--gris-600);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${qrUrl}">
+        ${l.codigo_qr}
+      </td>
+      <td style="display:flex;gap:6px">
+        <button class="btn btn-outline" style="padding:5px 10px;font-size:12px"
+          onclick="verQRLugar('${l.nombre}','${l.codigo_qr}','${l.edificio}')">
+          📲 QR
+        </button>
+        <button class="btn btn-danger" style="padding:5px 10px;font-size:12px"
+          onclick="eliminarLugar(${l.id})">
+          🗑
+        </button>
+      </td>
+    </tr>`;
+  }).join("");
+}
+
+async function crearLugar() {
+  const nombre      = document.getElementById("lNombre").value.trim();
+  const edificio_id = document.getElementById("lEdificio").value;
+  if (!nombre)       { toast("❌ Escribe el nombre del lugar"); return; }
+  if (!edificio_id)  { toast("❌ Selecciona un edificio"); return; }
+  const r = await fetch("/admin/crear-lugar", {
+    method:"POST",
+    headers:{"Content-Type":"application/json", Authorization:PASS},
+    body: JSON.stringify({ nombre, edificio_id })
+  });
+  const d = await r.json();
+  if (!d.ok) { toast("❌ Error creando lugar"); return; }
+  toast("✅ Lugar creado");
+  closeModal("modalLugar");
+  document.getElementById("lNombre").value = "";
+  cargarLugares();
+  // Mostrar QR inmediatamente
+  const edifEl = document.getElementById("lEdificio");
+  const edifNombre = edifEl.options[edifEl.selectedIndex]?.text || "";
+  verQRLugar(nombre, d.codigo_qr, edifNombre);
+}
+
+async function eliminarLugar(id) {
+  if (!confirm("¿Desactivar este lugar?")) return;
+  await fetch("/admin/eliminar-lugar", {
+    method:"POST",
+    headers:{"Content-Type":"application/json", Authorization:PASS},
+    body: JSON.stringify({ id })
+  });
+  toast("🗑 Lugar desactivado");
+  cargarLugares();
+}
+
+// ── Mostrar QR del lugar ──────────────────────────
+let _qrInstance = null;
+function verQRLugar(nombre, codigoQr, edificio) {
+  const url = `${location.origin}/?lugar=${encodeURIComponent(codigoQr)}`;
+  document.getElementById("qrLugarNombre").textContent =
+    `📍 ${nombre}  ·  🏢 ${edificio}`;
+  document.getElementById("qrLugarUrl").textContent = url;
+
+  const canvas = document.getElementById("qrLugarCanvas");
+  canvas.innerHTML = "";
+  _qrInstance = new QRCode(canvas, {
+    text: url, width:200, height:200,
+    colorDark:"#0a2e1f", colorLight:"#ffffff",
+    correctLevel: QRCode.CorrectLevel.H
+  });
+  showModal("modalQRLugar");
+}
+
+function imprimirQR() {
+  const nombre = document.getElementById("qrLugarNombre").textContent;
+  const url    = document.getElementById("qrLugarUrl").textContent;
+  const img    = document.getElementById("qrLugarCanvas").querySelector("img");
+  const src    = img ? img.src : "";
+  const w = window.open("","_blank");
+  w.document.write(`<!DOCTYPE html><html><head><title>QR - ${nombre}</title>
+    <style>body{font-family:sans-serif;text-align:center;padding:40px}
+    h2{color:#0a2e1f;margin-bottom:8px}
+    p{color:#6b7280;font-size:13px;margin-bottom:20px}
+    img{border:3px solid #0a2e1f;border-radius:12px;padding:10px}
+    small{display:block;margin-top:16px;color:#9ca3af;font-size:11px;word-break:break-all}
+    </style></head><body>
+    <h2>${nombre}</h2>
+    <p>Escanea este código para registrar la ronda</p>
+    ${src ? `<img src="${src}" width="200" height="200">` : ""}
+    <small>${url}</small>
+    <script>window.onload=()=>window.print()<\/script>
+    </body></html>`);
+  w.document.close();
 }
 </script>
 </body>

@@ -306,6 +306,41 @@ body::before {
   text-align: center; font-size: 10px;
   color: rgba(255,255,255,.3);
 }
+
+/* ── Offline badge ───────────────────────────── */
+#offlineBadge {
+  display: none;
+  position: fixed;
+  top: 12px; right: 12px;
+  background: #f59e0b;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: 99px;
+  z-index: 999;
+  box-shadow: 0 2px 8px rgba(0,0,0,.25);
+  cursor: pointer;
+  animation: pulseY .8s ease-in-out infinite alternate;
+}
+#offlineBadge.online { background: #10b981; animation: none; }
+@keyframes pulseY { from { opacity:.7 } to { opacity:1 } }
+#pendientesBadge {
+  display: none;
+  position: fixed;
+  bottom: 80px; right: 12px;
+  background: #f59e0b;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 8px 14px;
+  border-radius: 99px;
+  z-index: 999;
+  box-shadow: 0 2px 8px rgba(0,0,0,.3);
+  cursor: pointer;
+  gap: 6px;
+  align-items: center;
+}
 </style>
 </head>
 <body>
@@ -414,6 +449,12 @@ const params = new URLSearchParams(location.search);
 let codigo = (params.get("edificio") || "")
   .toLowerCase().trim().replace(/\s+/g,"").replace(/[^a-z0-9]/g,"");
 let nombreEdificio = "";
+
+// ── MODO RONDA: si la URL trae ?lugar= mostrar UI de ronda ───────────────────
+const codigoLugar = params.get("lugar") || "";
+if (codigoLugar) {
+  document.addEventListener("DOMContentLoaded", () => iniciarModoRonda(codigoLugar));
+}
 
 // ── MEJORA 7: Reloj en tiempo real ───────────────
 function actualizarReloj() {
@@ -657,6 +698,11 @@ async function abrirCamara() {
     await scanner.start(cameraId, { fps:10, qrbox:220, aspectRatio:1 }, text => {
       scanner.stop().catch(()=>{});
       scanner = null;
+      // Detectar si es QR de lugar de vigilancia (viene con ?lugar=)
+      if (text.includes("lugar=")) {
+        const m = text.match(/[?&]lugar=([^&]+)/);
+        if (m) { location.href = "/?lugar=" + encodeURIComponent(decodeURIComponent(m[1])); return; }
+      }
       const clean = text.toLowerCase()
         .replace(/^https?:\/\/.*[?&]edificio=/,"")
         .replace(/[^a-z0-9]/g,"");
@@ -686,10 +732,200 @@ if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(()=>{}));
 }
 
+// ── MODO RONDA ────────────────────────────────────
+// ── MODO RONDA: escaneo automático, sin cédula ────
+async function iniciarModoRonda(codigoLugarParam) {
+  // Ocultar todo lo que no se necesita (cédula, botón, chip)
+  document.getElementById("cedulaDisplay").style.display  = "none";
+  document.getElementById("btnConfirmar").style.display   = "none";
+  document.querySelector(".proximo-wrap").style.display   = "none";
+  document.getElementById("timerWrap").style.display      = "none";
+  document.querySelector(".divider").style.display        = "none";
+  document.getElementById("btnCamara").style.display      = "none";
+
+  // UI modo ronda
+  document.getElementById("edificioIcon").textContent     = "🔍";
+  document.getElementById("edificioNombre").textContent   = "Verificando lugar...";
+  document.getElementById("edificioSub").textContent      = "Ronda de vigilancia";
+  document.getElementById("edificioCard").style.background = "#1e3a5f";
+  setEstado("Registrando ronda...", "idle");
+
+  // Verificar lugar y registrar automáticamente
+  try {
+    const rLug  = await fetch("/lugares");
+    const dsLug = await rLug.json();
+    const lug   = dsLug.find(l => l.codigo_qr === codigoLugarParam);
+
+    if (!lug) {
+      document.getElementById("edificioNombre").textContent = "Lugar no reconocido";
+      document.getElementById("edificioCard").className     = "edificio-card invalido";
+      setEstado("Este QR no corresponde a ningún lugar registrado.", "error");
+      return;
+    }
+
+    document.getElementById("edificioNombre").textContent = "📍 " + lug.nombre;
+    document.getElementById("edificioSub").textContent    = lug.edificio_nombre || "Vigilancia";
+
+    // Registrar la ronda (el SW maneja el offline automáticamente)
+    let data, ok;
+    try {
+      const r = await fetch("/ronda", {
+        method : "POST",
+        headers: { "Content-Type": "application/json" },
+        body   : JSON.stringify({
+          codigoLugar : codigoLugarParam,
+          lugarNombre : lug.nombre,
+          deviceId    : getDeviceId(),
+        }),
+      });
+      data = await r.json();
+      ok   = r.ok;
+    } catch {
+      // Sin SW activo o fallo total — guardar manualmente en localStorage como respaldo
+      guardarRondaLocalStorage({ codigoLugar: codigoLugarParam, lugarNombre: lug.nombre });
+      data = { mensaje: "Guardado sin conexión", offline: true };
+      ok   = true;
+    }
+
+    if (ok) {
+      const esOffline = !!data.offline;
+      document.getElementById("confirmIcon").textContent   = esOffline ? "📵" : "✅";
+      document.getElementById("confirmTitulo").textContent = esOffline ? "Guardado sin conexión" : "Ronda registrada";
+      document.getElementById("confirmSub").textContent    =
+        lug.nombre + " · " + new Date().toLocaleTimeString("es-CO",{hour:"2-digit",minute:"2-digit"})
+        + (esOffline ? " · Se enviará al reconectar" : "");
+      const avatar = document.getElementById("confirmAvatar");
+      avatar.textContent = esOffline ? "📵" : "🔍";
+      avatar.className   = "confirm-avatar entrada";
+      [document.getElementById("confirmIcon"), document.getElementById("confirmTitulo"),
+       document.getElementById("confirmSub"), avatar].forEach(el => {
+        el.style.animation = "none"; el.offsetHeight; el.style.animation = "";
+      });
+      document.getElementById("confirmOverlay").classList.add("show");
+      setTimeout(() => document.getElementById("confirmOverlay").classList.remove("show"), 3500);
+      setEstado((esOffline ? "📵 " : "✅ ") + data.mensaje, esOffline ? "idle" : "ok");
+      actualizarBadgePendientes();
+    } else {
+      setEstado(data.mensaje || "Error al registrar.", "error");
+    }
+  } catch {
+    setEstado("Error inesperado. Intenta de nuevo.", "error");
+  }
+}
+
+// ── OFFLINE SUPPORT ───────────────────────────────
+
+// Escuchar mensajes del Service Worker
+if (navigator.serviceWorker) {
+  navigator.serviceWorker.addEventListener("message", e => {
+    const msg = e.data;
+    if (!msg) return;
+    if (msg.tipo === "ronda_offline") {
+      mostrarBadgeOffline(true);
+      actualizarBadgePendientes();
+    }
+    if (msg.tipo === "sync_completado" && msg.subidos > 0) {
+      mostrarBadgeOffline(false);
+      actualizarBadgePendientes();
+      // Toast discreto
+      const bd = document.getElementById("offlineBadge");
+      bd.textContent = "✅ " + msg.subidos + " ronda(s) sincronizada(s)";
+      bd.className   = "online";
+      bd.style.display = "flex";
+      setTimeout(() => { bd.style.display = "none"; bd.textContent = "📵 Sin conexión"; bd.className = ""; }, 4000);
+    }
+    if (msg.tipo === "pendientes_count") {
+      actualizarBadgeConCount(msg.count);
+    }
+  });
+}
+
+// Badge offline
+function mostrarBadgeOffline(offline) {
+  const bd = document.getElementById("offlineBadge");
+  if (offline) {
+    bd.style.display = "flex";
+    bd.textContent   = "📵 Sin conexión — datos guardados";
+    bd.className     = "";
+  } else {
+    bd.style.display = "none";
+  }
+}
+
+// Monitorear conexión
+window.addEventListener("online",  () => { mostrarBadgeOffline(false); intentarSync(); });
+window.addEventListener("offline", () => mostrarBadgeOffline(true));
+if (!navigator.onLine) mostrarBadgeOffline(true);
+
+// Pedir al SW cuántos pendientes hay
+function actualizarBadgePendientes() {
+  if (navigator.serviceWorker?.controller) {
+    navigator.serviceWorker.controller.postMessage({ tipo: "contar_pendientes" });
+  } else {
+    // Fallback: contar en localStorage
+    const local = JSON.parse(localStorage.getItem("rondas_pendientes_local") || "[]");
+    actualizarBadgeConCount(local.length);
+  }
+}
+
+function actualizarBadgeConCount(count) {
+  const bd = document.getElementById("pendientesBadge");
+  document.getElementById("pendientesCount").textContent = count;
+  bd.style.display = count > 0 ? "flex" : "none";
+}
+
+// Intentar sincronizar manualmente (botón o al reconectar)
+async function intentarSync() {
+  // Primero intentar via SW
+  if (navigator.serviceWorker?.controller) {
+    navigator.serviceWorker.controller.postMessage({ tipo: "sync_manual" });
+  }
+  // También intentar subir los del localStorage (respaldo)
+  await sincronizarLocalStorage();
+  actualizarBadgePendientes();
+}
+
+// ── Respaldo en localStorage (si SW no está activo) ──
+function guardarRondaLocalStorage(payload) {
+  const lista = JSON.parse(localStorage.getItem("rondas_pendientes_local") || "[]");
+  lista.push({ ...payload, fecha_hora_local: new Date().toISOString(), deviceId: getDeviceId() });
+  localStorage.setItem("rondas_pendientes_local", JSON.stringify(lista));
+}
+
+async function sincronizarLocalStorage() {
+  const lista = JSON.parse(localStorage.getItem("rondas_pendientes_local") || "[]");
+  if (!lista.length || !navigator.onLine) return;
+  const restantes = [];
+  for (const item of lista) {
+    try {
+      const res = await fetch("/ronda", {
+        method : "POST",
+        headers: { "Content-Type": "application/json" },
+        body   : JSON.stringify(item),
+      });
+      if (!res.ok) restantes.push(item);
+    } catch { restantes.push(item); }
+  }
+  localStorage.setItem("rondas_pendientes_local", JSON.stringify(restantes));
+}
+
+// Al cargar la app, intentar subir pendientes si hay conexión
+if (navigator.onLine) {
+  setTimeout(() => intentarSync(), 2000);
+} else {
+  setTimeout(() => actualizarBadgePendientes(), 500);
+}
+
 // ── Init ──────────────────────────────────────────
-habilitarFormulario(false);
-cargarEdificio();
+if (!codigoLugar) {
+  habilitarFormulario(false);
+  cargarEdificio();
+}
 if (tiempoRestanteSeg() > 0) arrancarTimer();
 </script>
+<!-- Offline indicator -->
+<div id="offlineBadge" onclick="intentarSync()" title="Toca para sincronizar">📵 Sin conexión</div>
+<div id="pendientesBadge" onclick="intentarSync()">⏳ <span id="pendientesCount">0</span> pendiente(s) — toca para subir</div>
+
 </body>
 </html>
