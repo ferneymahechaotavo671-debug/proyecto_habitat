@@ -830,7 +830,7 @@ async function initDB() {
         codigo_qr   VARCHAR(120) NOT NULL UNIQUE,
         edificio_id INT NOT NULL,
         activo      TINYINT(1) DEFAULT 1,
-        creado      DATETIME DEFAULT UTC_TIMESTAMP()
+        creado      DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
     console.log("✅ Tabla lugares lista");
@@ -845,7 +845,7 @@ async function initDB() {
         lugar_nombre VARCHAR(120),
         edificio_id  INT NOT NULL,
         edificio     VARCHAR(120),
-        fecha_hora   DATETIME DEFAULT UTC_TIMESTAMP()
+        fecha_hora   DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
     console.log("✅ Tabla rondas lista");
