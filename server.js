@@ -497,9 +497,9 @@ app.get("/admin/exportar-excel", validarAdmin, asyncHandler(async (req, res) => 
     const eid = parseInt(req.query.edificio_id, 10);
     if (!isNaN(eid)) { conditions.push("edificio_id=?"); params.push(eid); }
   }
-  if (req.query.cedula) {
-    const ced = req.query.cedula.replace(/\D/g, "");
-    if (ced) { conditions.push("cedula=?"); params.push(ced); }
+  if (req.query.rol) {
+    conditions.push("rol=?");
+    params.push(req.query.rol);
   }
   if (req.query.fecha_desde) {
     conditions.push("fecha_hora >= ?");
@@ -648,6 +648,7 @@ app.post("/ronda", asyncHandler(async (req, res) => {
   // Si el dispositivo no está registrado, registrar la ronda igual pero sin nombre
   const cedula  = devs[0]?.cedula  || "desconocido";
   const nombre  = devs[0]?.nombre  || "Vigilante";
+  const rol     = devs[0]?.rol     || "Vigilante";
 
   // Usar la hora local del dispositivo si viene (escaneo offline)
   // Validar que sea una fecha ISO válida y no más de 7 días atrás
@@ -663,13 +664,13 @@ app.post("/ronda", asyncHandler(async (req, res) => {
   // Guardar ronda (con fecha del dispositivo si aplica, o UTC ahora)
   if (fechaHora) {
     await pool.execute(
-      "INSERT INTO rondas (cedula, nombre, lugar_id, lugar_nombre, edificio_id, edificio, fecha_hora) VALUES (?,?,?,?,?,?,?)",
-      [cedula, nombre, lugar.id, lugar.nombre, lugar.edificio_id, lugar.edificio_nombre, fechaHora]
+      "INSERT INTO rondas (cedula, nombre, rol, lugar_id, lugar_nombre, edificio_id, edificio, fecha_hora) VALUES (?,?,?,?,?,?,?,?)",
+      [cedula, nombre, rol, lugar.id, lugar.nombre, lugar.edificio_id, lugar.edificio_nombre, fechaHora]
     );
   } else {
     await pool.execute(
-      "INSERT INTO rondas (cedula, nombre, lugar_id, lugar_nombre, edificio_id, edificio) VALUES (?,?,?,?,?,?)",
-      [cedula, nombre, lugar.id, lugar.nombre, lugar.edificio_id, lugar.edificio_nombre]
+      "INSERT INTO rondas (cedula, nombre, rol, lugar_id, lugar_nombre, edificio_id, edificio) VALUES (?,?,?,?,?,?,?)",
+      [cedula, nombre, rol, lugar.id, lugar.nombre, lugar.edificio_id, lugar.edificio_nombre]
     );
   }
 
@@ -732,7 +733,7 @@ app.get("/admin/exportar-rondas", validarAdmin, asyncHandler(async (req, res) =>
   const conditions = ["1=1"];
   const params     = [];
   if (req.query.edificio_id) { conditions.push("edificio_id=?"); params.push(parseInt(req.query.edificio_id,10)); }
-  if (req.query.cedula)      { const c=req.query.cedula.replace(/\D/g,""); if(c){conditions.push("cedula=?");params.push(c);} }
+  if (req.query.rol)         { conditions.push("rol=?"); params.push(req.query.rol); }
   if (req.query.fecha_desde) { conditions.push("fecha_hora >= ?"); params.push(req.query.fecha_desde+" 00:00:00"); }
   if (req.query.fecha_hasta) { conditions.push("fecha_hora <= ?"); params.push(req.query.fecha_hasta+" 23:59:59"); }
 
@@ -838,16 +839,21 @@ async function initDB() {
     // ── NUEVO: Rondas de vigilancia ──
     await pool.execute(`
       CREATE TABLE IF NOT EXISTS rondas (
-        id          INT AUTO_INCREMENT PRIMARY KEY,
-        cedula      VARCHAR(30) NOT NULL,
-        nombre      VARCHAR(120),
-        lugar_id    INT NOT NULL,
+        id           INT AUTO_INCREMENT PRIMARY KEY,
+        cedula       VARCHAR(30) NOT NULL,
+        nombre       VARCHAR(120),
+        rol          VARCHAR(60) DEFAULT 'Vigilante',
+        lugar_id     INT NOT NULL,
         lugar_nombre VARCHAR(120),
         edificio_id  INT NOT NULL,
         edificio     VARCHAR(120),
         fecha_hora   DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    // Migración: agregar columna rol si la tabla ya existía sin ella
+    await pool.execute(
+      "ALTER TABLE rondas ADD COLUMN IF NOT EXISTS rol VARCHAR(60) DEFAULT 'Vigilante'"
+    ).catch(()=>{});
     console.log("✅ Tabla rondas lista");
   } catch (err) {
     console.error("⚠️ No se pudo crear audit_log:", err.message);
