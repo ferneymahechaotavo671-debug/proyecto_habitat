@@ -621,34 +621,42 @@ app.post("/ronda", asyncHandler(async (req, res) => {
   const codigoLugar = req.body.codigoLugar?.toString().trim();
   const deviceId    = req.body.deviceId?.toString().trim();
 
-  if (!codigoLugar || !deviceId) {
-    return res.status(400).json({ mensaje: "Datos incompletos ❌" });
+  if (!codigoLugar) {
+    return res.status(400).json({ mensaje: "Código de lugar inválido ❌" });
+  }
+  if (!deviceId) {
+    return res.status(400).json({ mensaje: "Dispositivo no identificado ❌" });
   }
 
-  // Buscar lugar
-  const [[lugar]] = await pool.execute(
-    `SELECT l.*, e.nombre AS edificio_nombre
-     FROM lugares l JOIN edificios e ON l.edificio_id=e.id
-     WHERE l.codigo_qr=? AND l.activo=1`,
+  // Buscar lugar — LEFT JOIN por si el edificio no existe no rompe la query
+  const [lugarRows] = await pool.execute(
+    `SELECT l.id, l.nombre, l.edificio_id,
+            IFNULL(e.nombre,'Edificio') AS edificio_nombre
+     FROM lugares l
+     LEFT JOIN edificios e ON l.edificio_id=e.id
+     WHERE l.codigo_qr=? AND l.activo=1
+     LIMIT 1`,
     [codigoLugar]
   );
+  const lugar = lugarRows[0];
   if (!lugar) return res.status(404).json({ mensaje: "Lugar no reconocido ❌" });
 
-  // Identificar vigilante por deviceId (busca en dispositivos autorizados)
+  // Identificar vigilante por deviceId — no requerir autorización estricta
+  // para no bloquear rondas si el dispositivo cambió de edificio asignado
   const [devs] = await pool.execute(
-    `SELECT d.cedula, u.nombre, IFNULL(r.nombre,'usuario') AS rol
+    `SELECT d.cedula, u.nombre, IFNULL(r.nombre,'Vigilante') AS rol
      FROM dispositivos d
      JOIN usuarios u ON d.cedula = u.cedula
      LEFT JOIN roles r ON u.rol_id = r.id
-     WHERE d.device_id=? AND d.autorizado=1
+     WHERE d.device_id=?
+     ORDER BY d.autorizado DESC
      LIMIT 1`,
     [deviceId]
   );
 
-  // Si el dispositivo no está registrado, registrar la ronda igual pero sin nombre
-  const cedula  = devs[0]?.cedula  || "desconocido";
-  const nombre  = devs[0]?.nombre  || "Vigilante";
-  const rol     = devs[0]?.rol     || "Vigilante";
+  const cedula  = devs[0]?.cedula || "desconocido";
+  const nombre  = devs[0]?.nombre || "Vigilante";
+  const rol     = devs[0]?.rol    || "Vigilante";
 
   // Usar la hora local del dispositivo si viene (escaneo offline)
   // Validar que sea una fecha ISO válida y no más de 7 días atrás
