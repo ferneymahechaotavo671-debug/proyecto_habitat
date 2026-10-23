@@ -582,8 +582,12 @@ tbody tr.detalle-row td {
             <select id="rFEdificio"><option value="">Todos</option></select>
           </div>
           <div class="filter-group">
-            <label>Cédula vigilante</label>
-            <input type="text" id="rFCedula" placeholder="Ej. 1234567890" inputmode="numeric">
+            <label>Rol</label>
+            <select id="rFRol">
+              <option value="">Todos</option>
+              <option value="Vigilante">Vigilante</option>
+              <option value="Administración">Administrador</option>
+            </select>
           </div>
           <div class="filter-group">
             <label>Desde</label>
@@ -610,8 +614,8 @@ tbody tr.detalle-row td {
               <thead>
                 <tr>
                   <th>ID</th>
-                  <th>Vigilante</th>
-                  <th>Cédula</th>
+                  <th>Nombre</th>
+                  <th>Rol</th>
                   <th>Lugar revisado</th>
                   <th>Edificio</th>
                   <th>Fecha y hora</th>
@@ -1225,19 +1229,31 @@ function toast(msg) {
   toastTimer=setTimeout(()=>el.classList.remove("show"),3000);
 }
 
+// ── Rol badge helper ─────────────────────────────────
+function rolBadge(rol) {
+  const esAdmin = (rol||"").toLowerCase().includes("admin");
+  return `<span style="
+    background:${esAdmin?"#eff6ff":"#f0fdf4"};
+    color:${esAdmin?"#1d4ed8":"#166534"};
+    padding:3px 10px;border-radius:99px;
+    font-size:12px;font-weight:700;white-space:nowrap">
+    ${esAdmin?"🛡️ Administrador":"🔍 Vigilante"}
+  </span>`;
+}
+
 // ── RONDAS ────────────────────────────────────────
 let offsetRondas = 0;
 let totalRondas  = 0;
 
 async function cargarRondas() {
   const eid   = document.getElementById("rFEdificio")?.value || "";
-  const ced   = document.getElementById("rFCedula")?.value.replace(/\D/g,"") || "";
+  const rol   = document.getElementById("rFRol")?.value || "";
   const desde = document.getElementById("rFDesde")?.value || "";
   const hasta = document.getElementById("rFHasta")?.value || "";
 
   let url = `/admin/rondas?limit=${LIMIT}&offset=${offsetRondas}`;
   if (eid)   url += `&edificio_id=${eid}`;
-  if (ced)   url += `&cedula=${ced}`;
+  if (rol)   url += `&rol=${encodeURIComponent(rol)}`;
   if (desde) url += `&fecha_desde=${desde}`;
   if (hasta) url += `&fecha_hasta=${hasta}`;
 
@@ -1282,7 +1298,7 @@ async function cargarRondas() {
       return `<tr>
         <td style="color:var(--gris-400);font-size:12px">#${r.id}</td>
         <td style="font-weight:600">${r.nombre||"—"}</td>
-        <td><span class="cedula-link" onclick="verPerfil('${r.cedula}')">${r.cedula}</span></td>
+        <td>${rolBadge(r.rol)}</td>
         <td><span style="background:#f0fdf4;color:#166534;padding:3px 10px;border-radius:99px;font-size:12px;font-weight:700">📍 ${r.lugar_nombre||"—"}</span></td>
         <td>${r.edificio||"—"}</td>
         <td style="font-size:12px;color:var(--gris-600)">${fecha}</td>
@@ -1301,7 +1317,7 @@ async function cargarRondas() {
 
 function paginarRondas(dir) { offsetRondas = Math.max(0, offsetRondas+dir*LIMIT); cargarRondas(); }
 function limpiarFiltrosRondas() {
-  ["rFEdificio","rFCedula","rFDesde","rFHasta"].forEach(id => {
+  ["rFEdificio","rFRol","rFDesde","rFHasta"].forEach(id => {
     const el=document.getElementById(id); if(el) el.value="";
   });
   offsetRondas=0; cargarRondas();
@@ -1310,12 +1326,12 @@ function limpiarFiltrosRondas() {
 async function exportarRondas() {
   toast("⏳ Generando archivo...");
   const eid   = document.getElementById("rFEdificio")?.value||"";
-  const ced   = document.getElementById("rFCedula")?.value.replace(/\D/g,"")||"";
+  const rol2  = document.getElementById("rFRol")?.value||"";
   const desde = document.getElementById("rFDesde")?.value||"";
   const hasta = document.getElementById("rFHasta")?.value||"";
   let url = "/admin/exportar-rondas?";
   if (eid)   url += `edificio_id=${eid}&`;
-  if (ced)   url += `cedula=${ced}&`;
+  if (rol2)  url += `rol=${encodeURIComponent(rol2)}&`;
   if (desde) url += `fecha_desde=${desde}&`;
   if (hasta) url += `fecha_hasta=${hasta}`;
   const r = await fetch(url, {headers:{Authorization:PASS}});

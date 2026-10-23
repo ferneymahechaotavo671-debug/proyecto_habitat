@@ -802,8 +802,23 @@ async function iniciarModoRonda(codigoLugarParam) {
         el.style.animation = "none"; el.offsetHeight; el.style.animation = "";
       });
       document.getElementById("confirmOverlay").classList.add("show");
-      setTimeout(() => document.getElementById("confirmOverlay").classList.remove("show"), 3500);
-      setEstado((esOffline ? "📵 " : "✅ ") + data.mensaje, esOffline ? "idle" : "ok");
+      setTimeout(() => {
+        document.getElementById("confirmOverlay").classList.remove("show");
+        // Limpiar la URL para que un reload no genere otra ronda
+        window.history.replaceState({}, document.title, "/");
+        // Resetear UI a pantalla de escaneo sin recargar la página
+        document.getElementById("edificioCard").style.background   = "";
+        document.getElementById("edificioIcon").textContent        = "📷";
+        document.getElementById("edificioNombre").textContent      = "Escanea el código QR";
+        document.getElementById("edificioSub").textContent         = "del edificio o lugar";
+        document.getElementById("btnCamara").style.display         = "flex";
+        document.getElementById("cedulaDisplay").style.display     = "none";
+        document.getElementById("btnConfirmar").style.display      = "none";
+        document.querySelector(".divider").style.display           = "none";
+        document.querySelector(".proximo-wrap").style.display      = "none";
+        setEstado("Listo para el próximo escaneo", "ok");
+        setTimeout(() => setEstado("", "idle"), 2000);
+      }, 2800);
       actualizarBadgePendientes();
     } else {
       setEstado(data.mensaje || "Error al registrar.", "error");
