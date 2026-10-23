@@ -669,17 +669,30 @@ app.post("/ronda", asyncHandler(async (req, res) => {
     }
   }
 
-  // Guardar ronda (con fecha del dispositivo si aplica, o UTC ahora)
-  if (fechaHora) {
-    await pool.execute(
-      "INSERT INTO rondas (cedula, nombre, rol, lugar_id, lugar_nombre, edificio_id, edificio, fecha_hora) VALUES (?,?,?,?,?,?,?,?)",
-      [cedula, nombre, rol, lugar.id, lugar.nombre, lugar.edificio_id, lugar.edificio_nombre, fechaHora]
-    );
-  } else {
-    await pool.execute(
-      "INSERT INTO rondas (cedula, nombre, rol, lugar_id, lugar_nombre, edificio_id, edificio) VALUES (?,?,?,?,?,?,?)",
-      [cedula, nombre, rol, lugar.id, lugar.nombre, lugar.edificio_id, lugar.edificio_nombre]
-    );
+  // Guardar ronda — intentar con columna rol, fallback sin ella si no existe aún
+  const insertConRol = fechaHora
+    ? ["INSERT INTO rondas (cedula, nombre, rol, lugar_id, lugar_nombre, edificio_id, edificio, fecha_hora) VALUES (?,?,?,?,?,?,?,?)",
+       [cedula, nombre, rol, lugar.id, lugar.nombre, lugar.edificio_id, lugar.edificio_nombre, fechaHora]]
+    : ["INSERT INTO rondas (cedula, nombre, rol, lugar_id, lugar_nombre, edificio_id, edificio) VALUES (?,?,?,?,?,?,?)",
+       [cedula, nombre, rol, lugar.id, lugar.nombre, lugar.edificio_id, lugar.edificio_nombre]];
+
+  const insertSinRol = fechaHora
+    ? ["INSERT INTO rondas (cedula, nombre, lugar_id, lugar_nombre, edificio_id, edificio, fecha_hora) VALUES (?,?,?,?,?,?,?)",
+       [cedula, nombre, lugar.id, lugar.nombre, lugar.edificio_id, lugar.edificio_nombre, fechaHora]]
+    : ["INSERT INTO rondas (cedula, nombre, lugar_id, lugar_nombre, edificio_id, edificio) VALUES (?,?,?,?,?,?)",
+       [cedula, nombre, lugar.id, lugar.nombre, lugar.edificio_id, lugar.edificio_nombre]];
+
+  try {
+    await pool.execute(...insertConRol);
+  } catch (e) {
+    // Si falla por columna rol inexistente, guardar sin ella
+    if (e.message && e.message.includes("rol")) {
+      await pool.execute(...insertSinRol);
+      // Intentar agregar la columna para la próxima vez
+      pool.execute("ALTER TABLE rondas ADD COLUMN rol VARCHAR(60) DEFAULT 'Vigilante'").catch(()=>{});
+    } else {
+      throw e; // otro error — propagar
+    }
   }
 
   await auditLog("ronda_qr", { cedula, lugar: lugar.nombre, edificio: lugar.edificio_nombre }, cedula);
@@ -858,10 +871,16 @@ async function initDB() {
         fecha_hora   DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    // Migración: agregar columna rol si la tabla ya existía sin ella
-    await pool.execute(
-      "ALTER TABLE rondas ADD COLUMN IF NOT EXISTS rol VARCHAR(60) DEFAULT 'Vigilante'"
-    ).catch(()=>{});
+    // Migración segura: agregar columna rol si no existe
+    try {
+      const [cols] = await pool.execute(
+        "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='rondas' AND COLUMN_NAME='rol'"
+      );
+      if (cols.length === 0) {
+        await pool.execute("ALTER TABLE rondas ADD COLUMN rol VARCHAR(60) DEFAULT 'Vigilante'");
+        console.log("✅ Columna rol agregada a rondas");
+      }
+    } catch(e) { console.warn("⚠️ No se pudo migrar columna rol:", e.message); }
     console.log("✅ Tabla rondas lista");
   } catch (err) {
     console.error("⚠️ No se pudo crear audit_log:", err.message);
